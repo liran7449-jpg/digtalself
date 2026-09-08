@@ -9,9 +9,12 @@ export type MoodKey = Mood;
 export function MoodPicker({
   value,
   onChange,
+  /** 晚间反思问的是「这一天过得怎么样」，与早上不是同一个问题 */
+  ariaLabel = "今天的心情",
 }: {
   value?: MoodKey | null;
   onChange?: (m: MoodKey) => void;
+  ariaLabel?: string;
 }) {
   const [internal, setInternal] = useState<MoodKey | null>(value ?? null);
   const selected = value !== undefined ? value : internal;
@@ -22,7 +25,7 @@ export function MoodPicker({
   }
 
   return (
-    <div role="radiogroup" aria-label="今天的心情" className="flex flex-wrap gap-2">
+    <div role="radiogroup" aria-label={ariaLabel} className="flex flex-wrap gap-2">
       {MOOD_VALUES.map((key) => {
         const m = MOOD_LABELS[key];
         const active = selected === key;

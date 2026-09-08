@@ -22,6 +22,13 @@
       "when": 1788868623165,
       "tag": "0002_harsh_owl",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788876547538,
+      "tag": "0003_plain_whirlwind",
+      "breakpoints": true
     }
   ]
 }

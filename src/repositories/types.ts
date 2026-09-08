@@ -64,7 +64,26 @@ export interface DayRepository {
   ): Promise<Day>;
   markReadyToReflect(date: DayKey): Promise<Day>;
   markReflected(date: DayKey): Promise<Day>;
+  /**
+   * 保存晚间反思，并把 Day 推进到 reflected。
+   *
+   * 一旦 reflectedAt 非空就拒绝再写 —— 反思存的是那一刻的真实想法，
+   * 不该被日后的自己修饰。UI 会转成只读，但约束必须在这一层，
+   * 否则并发提交或直接调用就绕过去了。
+   *
+   * 全部字段可空：IA 第 21 节要求每个问题都能跳过。
+   */
+  saveReflection(date: DayKey, input: ReflectionInput): Promise<Day>;
+  /** 记下用户对「把没做完的带到今天」说了「不用」，别再问 */
+  dismissCarry(date: DayKey): Promise<Day>;
   recent(limit: number): Promise<Day[]>;
+}
+
+/** 晚间反思的输入。三项都可空 —— 每个问题都能跳过。 */
+export interface ReflectionInput {
+  eveningMood?: Day["eveningMood"];
+  stayedWithYou?: string | null;
+  learned?: string | null;
 }
 
 /** 顺延结果。没有可顺延的项时 count 为 0。 */

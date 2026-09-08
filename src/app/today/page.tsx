@@ -28,13 +28,17 @@ export default async function TodayPage() {
     );
   }
 
-  const [plans, moments, carryable] = await Promise.all([
+  const [plans, moments, peeked] = await Promise.all([
     repo.plans.listByDate(date),
     repo.moments.listByDate(date),
     // 只读探测。不在这里直接顺延 —— 渲染是 GET，不该有副作用，
     // 而且 Next 可能重复渲染。自动顺延在 Morning Setup 提交时发生。
     repo.plans.peekCarryable(date),
   ]);
+
+  // 说过「不用」就别再问。这个判断必须基于落库的标记 ——
+  // 只存客户端状态的话，刷新后提示又冒出来。
+  const carryable = day.carryDismissed ? { count: 0, from: null } : peeked;
 
   return (
     <AppShell current="/today">
@@ -63,9 +67,7 @@ export default async function TodayPage() {
 
         <Rule />
 
-        <EndMyDay
-          done={day.status === "ready_to_reflect" || day.status === "reflected"}
-        />
+        <EndMyDay day={day} />
       </div>
     </AppShell>
   );

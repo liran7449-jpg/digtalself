@@ -120,6 +120,144 @@ describe("Day 部分更新", () => {
   });
 });
 
+describe("Day 晚间反思", () => {
+  it("写入三项并推进到 reflected", async () => {
+    const { repo, toDayKey, addDays } = await load();
+    const date = addDays(toDayKey(), 300);
+    await repo.days.ensure(date);
+
+    const d = await repo.days.saveReflection(date, {
+      eveningMood: "good",
+      stayedWithYou: "下午那通电话",
+      learned: "先问清楚再动手",
+    });
+
+    expect(d.eveningMood).toBe("good");
+    expect(d.stayedWithYou).toBe("下午那通电话");
+    expect(d.learned).toBe("先问清楚再动手");
+    expect(d.reflectedAt).not.toBeNull();
+    expect(d.status).toBe("reflected");
+  });
+
+  it("不覆盖早上的 mood —— 两个一起看才有一天的走向", async () => {
+    const { repo, toDayKey, addDays } = await load();
+    const date = addDays(toDayKey(), 301);
+    await repo.days.ensure(date);
+    await repo.days.applyMorningSetup(date, {
+      mood: "low",
+      energy: "low",
+      focus: "撑过今天",
+    });
+
+    const d = await repo.days.saveReflection(date, { eveningMood: "good" });
+    expect(d.mood).toBe("low"); // 早上的还在
+    expect(d.eveningMood).toBe("good");
+    expect(d.focus).toBe("撑过今天"); // focus 也不能被清掉
+  });
+
+  it("交了就锁住：第二次写入被拒绝", async () => {
+    const { repo, toDayKey, addDays } = await load();
+    const date = addDays(toDayKey(), 302);
+    await repo.days.ensure(date);
+
+    await repo.days.saveReflection(date, { stayedWithYou: "当时真实的想法" });
+
+    // 反思存的是那一刻的想法，不该被日后的自己修饰。
+    // 约束必须在 repo 层，UI 隐藏表单挡不住并发提交或多标签页。
+    await expect(
+      repo.days.saveReflection(date, { stayedWithYou: "改过的说法" }),
+    ).rejects.toThrow();
+
+    const d = await repo.days.find(date);
+    expect(d?.stayedWithYou).toBe("当时真实的想法");
+  });
+
+  it("三项全跳过也能提交", async () => {
+    const { repo, toDayKey, addDays } = await load();
+    const date = addDays(toDayKey(), 303);
+    await repo.days.ensure(date);
+
+    // IA 第 21 节：每个问题都能跳过。什么都不写也是一种回答。
+    const d = await repo.days.saveReflection(date, {});
+    expect(d.eveningMood).toBeNull();
+    expect(d.stayedWithYou).toBeNull();
+    expect(d.learned).toBeNull();
+    expect(d.reflectedAt).not.toBeNull(); // 但确实反思过了
+    expect(d.status).toBe("reflected");
+  });
+
+  it("空白字符串归一为 null", async () => {
+    const { repo, toDayKey, addDays } = await load();
+    const date = addDays(toDayKey(), 304);
+    await repo.days.ensure(date);
+
+    const d = await repo.days.saveReflection(date, {
+      stayedWithYou: "   ",
+      learned: "\n\n",
+    });
+    expect(d.stayedWithYou).toBeNull();
+    expect(d.learned).toBeNull();
+  });
+
+  it("没走过 Morning Setup 的一天也能直接反思", async () => {
+    const { repo, toDayKey, addDays } = await load();
+    const date = addDays(toDayKey(), 305);
+    const d0 = await repo.days.ensure(date);
+    expect(d0.status).toBe("not_started");
+
+    // 早上没打开 app、晚上想记两句。状态机只允许逐跳前进，
+    // 中间的跳必须补齐，否则会出现 reflectedAt 已写而 status
+    // 还停在 not_started 的矛盾状态。
+    const d = await repo.days.saveReflection(date, { eveningMood: "okay" });
+    expect(d.status).toBe("reflected");
+    expect(d.reflectedAt).not.toBeNull();
+  });
+
+  it("已 ready_to_reflect 的一天可以正常反思", async () => {
+    const { repo, toDayKey, addDays } = await load();
+    const date = addDays(toDayKey(), 306);
+    await repo.days.ensure(date);
+    await repo.days.markReadyToReflect(date);
+
+    const d = await repo.days.saveReflection(date, { learned: "别硬撑" });
+    expect(d.status).toBe("reflected");
+    expect(d.learned).toBe("别硬撑");
+  });
+});
+
+describe("Day 顺延提示", () => {
+  it("dismissCarry 落库，刷新后不再问", async () => {
+    const { repo, toDayKey, addDays } = await load();
+    const date = addDays(toDayKey(), 310);
+
+    const d0 = await repo.days.ensure(date);
+    expect(d0.carryDismissed).toBe(false);
+
+    await repo.days.dismissCarry(date);
+
+    // 关键：重新读取仍为 true。只存客户端状态的话刷新就丢了，
+    // 提示会反复冒出来。
+    const d1 = await repo.days.find(date);
+    expect(d1?.carryDismissed).toBe(true);
+  });
+
+  it("dismissCarry 不影响其他字段", async () => {
+    const { repo, toDayKey, addDays } = await load();
+    const date = addDays(toDayKey(), 311);
+    await repo.days.ensure(date);
+    await repo.days.applyMorningSetup(date, {
+      mood: "great",
+      energy: "high",
+      focus: "写完那份东西",
+    });
+
+    const d = await repo.days.dismissCarry(date);
+    expect(d.mood).toBe("great");
+    expect(d.focus).toBe("写完那份东西");
+    expect(d.status).toBe("started");
+  });
+});
+
 describe("Day 月度摘要", () => {
   it("包含只有 Moment 而没有 Day 行的日期", async () => {
     const { repo, toDayKey, toMonthKey, addDays } = await load();

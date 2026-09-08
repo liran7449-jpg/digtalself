@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { repo } from "@/repositories";
 import { toDayKey } from "@/domain/day-key";
-import { morningSetupSchema, quickCaptureSchema } from "@/domain/models";
+import {
+  eveningReflectionSchema,
+  morningSetupSchema,
+  quickCaptureSchema,
+} from "@/domain/models";
 import {
   ENERGY_VALUES,
   MOOD_VALUES,
@@ -213,6 +217,43 @@ export async function carryOverToToday(): Promise<
 
 export async function endMyDay(): Promise<ActionResult> {
   await repo.days.markReadyToReflect(toDayKey());
+  revalidatePath("/today");
+  return { ok: true };
+}
+
+/**
+ * 提交晚间反思。三项全可空 —— 每个问题都能跳过。
+ * 一旦提交就锁住，repo 层会拒绝第二次写入。
+ */
+export async function submitReflection(
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = eveningReflectionSchema.safeParse({
+    eveningMood: (formData.get("eveningMood") as string) || null,
+    stayedWithYou: ((formData.get("stayedWithYou") as string) || "").trim() || null,
+    learned: ((formData.get("learned") as string) || "").trim() || null,
+  });
+
+  if (!parsed.success) {
+    return { ok: false, error: "有一项填得不太对，检查一下？" };
+  }
+
+  const date = toDayKey();
+  try {
+    await repo.days.saveReflection(date, parsed.data);
+  } catch {
+    // 唯一会走到这里的情况是已经反思过了（并发提交或多标签页）
+    return { ok: false, error: "今天已经反思过了。刷新看看？" };
+  }
+
+  revalidatePath("/today");
+  revalidatePath(`/days/${date}`);
+  return { ok: true };
+}
+
+/** 记下「不用」，别再问。落库，否则刷新后提示又冒出来。 */
+export async function dismissCarryOver(): Promise<ActionResult> {
+  await repo.days.dismissCarry(toDayKey());
   revalidatePath("/today");
   return { ok: true };
 }

@@ -12,6 +12,7 @@ import {
   addPlanItem,
   carryOverToToday,
   deletePlanItem,
+  dismissCarryOver,
   setPlanPriority,
   setPlanStatus,
   updatePlanItem,
@@ -334,7 +335,12 @@ export function Timeline({
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [dismissedCarry, setDismissedCarry] = useState(false);
+  /**
+   * 只用于点「不用」后立刻收起，等服务端往返完成。
+   * 真正的记忆在 day.carryDismissed（落库），所以刷新后也不会再问 ——
+   * 之前只有这个客户端状态，刷新提示就又冒出来了。
+   */
+  const [hiding, setHiding] = useState(false);
 
   function add(fd: FormData) {
     setError(null);
@@ -346,7 +352,7 @@ export function Timeline({
   }
 
   const doneCount = items.filter((i) => i.status === "completed").length;
-  const showCarry = carryable.count > 0 && !dismissedCarry;
+  const showCarry = carryable.count > 0 && !hiding;
 
   return (
     <section>
@@ -385,7 +391,16 @@ export function Timeline({
               {pending ? "正在带过来…" : "带到今天"}
             </button>
             <button
-              onClick={() => setDismissedCarry(true)}
+              onClick={() => {
+                setHiding(true); // 先收起，别等往返
+                startTransition(async () => {
+                  const res = await dismissCarryOver();
+                  if (!res.ok) {
+                    setError(res.error ?? "操作失败。");
+                    setHiding(false);
+                  }
+                });
+              }}
               className="min-h-10 cursor-pointer px-1 text-small text-ink-muted
                 transition-colors hover:text-ink"
             >

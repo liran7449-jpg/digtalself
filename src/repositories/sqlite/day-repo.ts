@@ -19,6 +19,11 @@ function toDay(r: Row): Day {
     energy: r.energy as Day["energy"],
     focus: r.focus,
     theme: r.theme,
+    eveningMood: r.eveningMood as Day["eveningMood"],
+    stayedWithYou: r.stayedWithYou,
+    learned: r.learned,
+    reflectedAt: r.reflectedAt,
+    carryDismissed: r.carryDismissed,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   };
@@ -51,6 +56,23 @@ async function ensure(date: DayKey): Promise<Day> {
  */
 function advance(from: DayStatus, to: DayStatus): DayStatus {
   return canTransition(DAY_TRANSITIONS, from, to) ? to : from;
+}
+
+/**
+ * 一路走到 reflected，中间的状态自动补齐。
+ *
+ * 状态机只允许逐跳前进，而用户可能从任何状态直接反思 ——
+ * 比如早上没打开 app（not_started）晚上想记两句。少补一跳，
+ * 就会出现 reflectedAt 已写、status 还停在 not_started 的矛盾状态。
+ */
+const TO_REFLECTED: readonly DayStatus[] = [
+  "started",
+  "ready_to_reflect",
+  "reflected",
+];
+
+function toReflected(from: DayStatus): DayStatus {
+  return TO_REFLECTED.reduce((s, next) => advance(s, next), from);
 }
 
 export const sqliteDayRepo: DayRepository = {
@@ -116,11 +138,45 @@ export const sqliteDayRepo: DayRepository = {
 
   async markReflected(date) {
     const day = await ensure(date);
-    // ready_to_reflect 是 reflected 的前置；若还没到，先补一跳
-    const mid = advance(day.status, "ready_to_reflect");
     const rows = await db
       .update(days)
-      .set({ status: advance(mid, "reflected"), updatedAt: now() })
+      .set({ status: toReflected(day.status), updatedAt: now() })
+      .where(eq(days.date, date))
+      .returning();
+    return toDay(firstOrThrow(rows, "Day", date));
+  },
+
+  async saveReflection(date, input) {
+    const day = await ensure(date);
+
+    // 反思存的是那一刻的真实想法，不该被日后的自己修饰。
+    // 约束放在这一层而不只是隐藏表单：并发提交或直接调用都会被挡住。
+    if (day.reflectedAt !== null) {
+      throw new Error(`Day ${date} 已经反思过了，不能重写。`);
+    }
+
+    const at = now();
+    // 一次性提交，三项一起写。全部可空 —— 每个问题都能跳过。
+    const rows = await db
+      .update(days)
+      .set({
+        eveningMood: input.eveningMood ?? null,
+        stayedWithYou: input.stayedWithYou?.trim() || null,
+        learned: input.learned?.trim() || null,
+        reflectedAt: at,
+        status: toReflected(day.status),
+        updatedAt: at,
+      })
+      .where(eq(days.date, date))
+      .returning();
+    return toDay(firstOrThrow(rows, "Day", date));
+  },
+
+  async dismissCarry(date) {
+    await ensure(date);
+    const rows = await db
+      .update(days)
+      .set({ carryDismissed: true, updatedAt: now() })
       .where(eq(days.date, date))
       .returning();
     return toDay(firstOrThrow(rows, "Day", date));

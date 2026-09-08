@@ -51,6 +51,14 @@ export const daySchema = z.object({
   energy: z.enum(ENERGY_VALUES).nullable(),
   focus: z.string().max(280).nullable(),
   theme: z.string().max(120).nullable(),
+  /** 晚上的心情，不覆盖早上那个 —— 两个一起看才有一天的走向 */
+  eveningMood: z.enum(MOOD_VALUES).nullable(),
+  stayedWithYou: z.string().max(2000).nullable(),
+  learned: z.string().max(2000).nullable(),
+  /** 非空即已反思。UI 据此转为只读。 */
+  reflectedAt: ts.nullable(),
+  /** 对「把没做完的带到今天」说过「不用」 */
+  carryDismissed: z.boolean(),
   createdAt: ts,
   updatedAt: ts,
 });
@@ -61,6 +69,16 @@ export const morningSetupSchema = z.object({
   mood: z.enum(MOOD_VALUES).nullable(),
   energy: z.enum(ENERGY_VALUES).nullable(),
   focus: z.string().trim().max(280).nullable(),
+});
+
+/**
+ * 晚间反思提交。三项全可空 —— IA 第 21 节：每个问题都能跳过。
+ * 上限给得比 focus 宽：这两栏是自由书写，可能写很长。
+ */
+export const eveningReflectionSchema = z.object({
+  eveningMood: z.enum(MOOD_VALUES).nullable(),
+  stayedWithYou: z.string().trim().max(2000).nullable(),
+  learned: z.string().trim().max(2000).nullable(),
 });
 export type MorningSetupInput = z.infer<typeof morningSetupSchema>;
 

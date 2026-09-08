@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Label, Rule, Sparkle } from "@/components/ui/Primitives";
 import { MomentTime } from "@/components/moment/MomentTime";
 import { priorityBar, priorityText } from "@/components/plan/priority-style";
+import { ReflectionCard } from "@/components/day/ReflectionCard";
 import { repo } from "@/repositories";
 import {
   addDays,
@@ -118,7 +119,13 @@ export default async function DayPage({
   const hasNext = !isFutureDay(next, today);
 
   const doneCount = plans.filter((p) => p.status === "completed").length;
-  const isEmpty = !day?.mood && !day?.focus && plans.length === 0 && moments.length === 0;
+  // 反思也算「留下了什么」—— 只写了反思的一天不该显示成空白
+  const isEmpty =
+    !day?.mood &&
+    !day?.focus &&
+    !day?.reflectedAt &&
+    plans.length === 0 &&
+    moments.length === 0;
 
   return (
     <AppShell current="/moments">
@@ -258,6 +265,16 @@ export default async function DayPage({
                       </li>
                     ))}
                   </ul>
+                </section>
+              </>
+            )}
+
+            {/* 反思放最后 —— 它就是这一天的收尾 */}
+            {day?.reflectedAt && (
+              <>
+                <Rule />
+                <section>
+                  <ReflectionCard day={day} heading="这一天的反思" />
                 </section>
               </>
             )}

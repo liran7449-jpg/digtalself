@@ -53,6 +53,24 @@ export const days = sqliteTable("days", {
   energy: text("energy"),
   focus: text("focus"),
   theme: text("theme"),
+  /**
+   * 晚上的心情。刻意不覆盖早上那个 mood ——
+   * 两个一起看才能看出一天的走向。
+   */
+  eveningMood: text("evening_mood"),
+  /** 「今天什么留在了心里」 */
+  stayedWithYou: text("stayed_with_you"),
+  /** 「学到了什么」 */
+  learned: text("learned"),
+  /** 提交反思的时刻。非空即表示已反思，UI 转为只读。 */
+  reflectedAt: integer("reflected_at", { mode: "timestamp_ms" }),
+  /**
+   * 用户对「把没做完的带到今天」说过「不用」。
+   * 必须落库：只存客户端状态的话，刷新后提示又会冒出来。
+   */
+  carryDismissed: integer("carry_dismissed", { mode: "boolean" })
+    .notNull()
+    .default(false),
   createdAt,
   updatedAt,
 });
