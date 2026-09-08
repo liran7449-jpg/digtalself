@@ -1,0 +1,1 @@
+ALTER TABLE `moments` ADD `why_it_matters` text;

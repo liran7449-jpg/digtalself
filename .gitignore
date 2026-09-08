@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 个人数据：SQLite 库与导出文件，绝不进版本库
+/data/
+*.db
+*.db-shm
+*.db-wal
+/exports/
+
+# AI agent 生成的说明文件
+/AGENTS.md
+/CLAUDE.md
