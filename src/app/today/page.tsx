@@ -5,7 +5,7 @@ import { formatDayLong, greeting, toDayKey } from "@/domain/day-key";
 import { MorningSetup } from "./MorningSetup";
 import { MyState } from "./MyState";
 import { FocusLine } from "./FocusLine";
-import { QuickCapture } from "./QuickCapture";
+import { MomentComposerWrapper } from "./MomentComposerWrapper";
 import { Timeline } from "./Timeline";
 import { MomentList } from "./MomentList";
 import { EndMyDay } from "./EndMyDay";
@@ -36,6 +36,19 @@ export default async function TodayPage() {
     repo.plans.peekCarryable(date),
   ]);
 
+  // 为每个 Moment 加载关联数据（图片/人物/地点/话题）
+  const momentsWithRelations = await Promise.all(
+    moments.map(async (m) => {
+      const [media, people, places, topics] = await Promise.all([
+        repo.media.listByMoment(m.id),
+        repo.people.listByMoment(m.id),
+        repo.places.listByMoment(m.id),
+        repo.topics.listByMoment(m.id),
+      ]);
+      return { ...m, media, people, places, topics };
+    })
+  );
+
   // 说过「不用」就别再问。这个判断必须基于落库的标记 ——
   // 只存客户端状态的话，刷新后提示又冒出来。
   const carryable = day.carryDismissed ? { count: 0, from: null } : peeked;
@@ -61,9 +74,9 @@ export default async function TodayPage() {
 
         <Rule />
 
-        <QuickCapture />
+        <MomentComposerWrapper />
 
-        <MomentList moments={moments} />
+        <MomentList moments={momentsWithRelations} />
 
         <Rule />
 

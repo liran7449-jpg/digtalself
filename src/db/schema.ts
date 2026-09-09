@@ -11,6 +11,7 @@ import { sql } from "drizzle-orm";
 import {
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -112,7 +113,6 @@ export const moments = sqliteTable(
   {
     id: text("id").primaryKey(),
     date: text("date").notNull(),
-    type: text("type").notNull().default("thought"),
     status: text("status").notNull().default("saved"),
     content: text("content").notNull().default(""),
     mediaPaths: text("media_paths", { mode: "json" })
@@ -121,12 +121,18 @@ export const moments = sqliteTable(
       .default([]),
     occurredAt: integer("occurred_at", { mode: "timestamp_ms" }).notNull(),
     mood: text("mood"),
+    /** Moment 类型：thought / diary / photo / event / person / place / idea */
+    type: text("type").notNull().default("thought"),
     tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
     place: text("place"),
     goalId: text("goal_id").references(() => goals.id, {
       onDelete: "set null",
     }),
     importance: integer("importance").notNull().default(3),
+    /**
+     * @deprecated 用 memories 表判断，不再用这个字段。
+     * 保留是为了不破坏现有数据，但新代码不该再写入。
+     */
     isMemory: integer("is_memory", { mode: "boolean" }).notNull().default(false),
     /** IA 第 17 节 Level 3：用户自己补的「为什么重要」，与 AI 生成的 aiSummary 分开存 */
     whyItMatters: text("why_it_matters"),
@@ -198,4 +204,146 @@ export const insights = sqliteTable(
     createdAt,
   },
   (t) => [index("insights_range_idx").on(t.type, t.rangeEnd)],
+);
+
+/** People: 出现在 Moments 中的人 */
+export const people = sqliteTable("people", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  notes: text("notes"), // 关于这个人的备注
+  createdAt,
+  updatedAt,
+});
+
+/** Places: 出现在 Moments 中的地点 */
+export const places = sqliteTable("places", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  notes: text("notes"),
+  createdAt,
+  updatedAt,
+});
+
+/** Topics: Moments 的主题标签 */
+export const topics = sqliteTable("topics", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt,
+  updatedAt,
+});
+
+/** Media: 照片、文件等媒体资源 */
+export const media = sqliteTable("media", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().default("me"),
+  /** 存储路径：data/media/{userId}/{yyyy}/{MM}/{filename} */
+  storageKey: text("storage_key").notNull(),
+  /** MIME type */
+  type: text("type").notNull(),
+  /** 文件大小（字节） */
+  size: integer("size").notNull(),
+  /** 图片宽度（非图片为 null） */
+  width: integer("width"),
+  /** 图片高度（非图片为 null） */
+  height: integer("height"),
+  /** 缩略图路径（如果生成了） */
+  thumbnailKey: text("thumbnail_key"),
+  createdAt,
+  updatedAt,
+});
+
+/**
+ * Growth Evidence: 成长证据（预留表，UI 暂不实现）
+ * 未来用于 Me 页面的 WHO I'M BECOMING 板块。
+ */
+export const growthEvidences = sqliteTable("growth_evidences", {
+  id: text("id").primaryKey(),
+  content: text("content").notNull(),
+  sourceType: text("source_type"), // 'moment' | 'goal' | ...
+  sourceId: text("source_id"),
+  markedAt: integer("marked_at", { mode: "timestamp_ms" }).notNull(),
+  createdAt,
+  updatedAt,
+});
+
+/** Moment ↔ Person 多对多 */
+export const momentPeople = sqliteTable(
+  "moment_people",
+  {
+    momentId: text("moment_id")
+      .notNull()
+      .references(() => moments.id, { onDelete: "cascade" }),
+    personId: text("person_id")
+      .notNull()
+      .references(() => people.id, { onDelete: "cascade" }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.momentId, t.personId] }),
+  }),
+);
+
+/** Moment ↔ Place 多对多 */
+export const momentPlaces = sqliteTable(
+  "moment_places",
+  {
+    momentId: text("moment_id")
+      .notNull()
+      .references(() => moments.id, { onDelete: "cascade" }),
+    placeId: text("place_id")
+      .notNull()
+      .references(() => places.id, { onDelete: "cascade" }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.momentId, t.placeId] }),
+  }),
+);
+
+/** Moment ↔ Topic 多对多 */
+export const momentTopics = sqliteTable(
+  "moment_topics",
+  {
+    momentId: text("moment_id")
+      .notNull()
+      .references(() => moments.id, { onDelete: "cascade" }),
+    topicId: text("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.momentId, t.topicId] }),
+  }),
+);
+
+/** Moment ↔ Goal 多对多（goals 表已存在，只加关联表） */
+export const momentGoals = sqliteTable(
+  "moment_goals",
+  {
+    momentId: text("moment_id")
+      .notNull()
+      .references(() => moments.id, { onDelete: "cascade" }),
+    goalId: text("goal_id")
+      .notNull()
+      .references(() => goals.id, { onDelete: "cascade" }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.momentId, t.goalId] }),
+  }),
+);
+
+/** Moment ↔ Media 多对多（一个 Moment 可以有多张照片） */
+export const momentMedia = sqliteTable(
+  "moment_media",
+  {
+    momentId: text("moment_id")
+      .notNull()
+      .references(() => moments.id, { onDelete: "cascade" }),
+    mediaId: text("media_id")
+      .notNull()
+      .references(() => media.id, { onDelete: "cascade" }),
+    /** 在 Moment 中的排序 */
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.momentId, t.mediaId] }),
+  }),
 );

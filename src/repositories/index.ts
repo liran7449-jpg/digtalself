@@ -12,6 +12,11 @@ import { sqliteGoalRepo } from "./sqlite/goal-repo";
 import { sqliteMemoryRepo } from "./sqlite/memory-repo";
 import { sqliteInsightRepo } from "./sqlite/insight-repo";
 import { sqliteExportRepo } from "./sqlite/export-repo";
+import { createPersonRepository } from "./sqlite/person-repo";
+import { createPlaceRepository } from "./sqlite/place-repo";
+import { createTopicRepository } from "./sqlite/topic-repo";
+import { createMediaRepository } from "./sqlite/media-repo";
+import { createGrowthEvidenceRepository } from "./sqlite/growth-evidence-repo";
 
 export const repo: Repositories = {
   users: sqliteUserRepo,
@@ -21,6 +26,11 @@ export const repo: Repositories = {
   goals: sqliteGoalRepo,
   memories: sqliteMemoryRepo,
   insights: sqliteInsightRepo,
+  people: createPersonRepository(),
+  places: createPlaceRepository(),
+  topics: createTopicRepository(),
+  media: createMediaRepository(),
+  growthEvidences: createGrowthEvidenceRepository(),
   exports: sqliteExportRepo,
 };
 

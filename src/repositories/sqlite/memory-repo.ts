@@ -54,10 +54,27 @@ export const sqliteMemoryRepo: MemoryRepository = {
     return rows.map(toMemory);
   },
 
+  async findBySourceId(sourceId: string) {
+    const rows = await db
+      .select()
+      .from(memories)
+      .where(inArray(memories.status, ["confirmed", "active"]))
+      .all();
+
+    // sourceIds 是 JSON 数组，需要遍历查找
+    const match = rows.find((r) => r.sourceIds.includes(sourceId));
+    return match ? toMemory(match) : null;
+  },
+
   async create(input) {
     const rows = await db
       .insert(memories)
-      .values({ ...input, id: newId(), status: "candidate" })
+      .values({
+        ...input,
+        id: newId(),
+        // 如果 input 已有 userConfirmed=true，直接设为 confirmed；否则是 AI 推断的 candidate
+        status: input.userConfirmed ? "confirmed" : "candidate"
+      })
       .returning();
     return toMemory(rows[0]);
   },

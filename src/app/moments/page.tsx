@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { Label } from "@/components/ui/Primitives";
-import { MomentTime } from "@/components/moment/MomentTime";
+import { MomentCard } from "@/components/moment/MomentCard";
 import { MonthCalendar } from "@/components/calendar/MonthCalendar";
 import { repo } from "@/repositories";
 import {
@@ -12,15 +12,19 @@ import {
   type DayKey,
   type MonthKey,
 } from "@/domain/day-key";
-import type { Moment } from "@/domain/models";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
 
-/** 按 DayKey 分组，保持传入的倒序。 */
-function groupByDay(moments: Moment[]): { date: DayKey; items: Moment[] }[] {
-  const groups: { date: DayKey; items: Moment[] }[] = [];
+/**
+ * 按 DayKey 分组，保持传入的倒序。
+ * 泛型保留调用方的具体类型 —— Moment 挂了 media/people 等关联字段时不能丢掉。
+ */
+function groupByDay<T extends { date: DayKey }>(
+  moments: T[],
+): { date: DayKey; items: T[] }[] {
+  const groups: { date: DayKey; items: T[] }[] = [];
   for (const m of moments) {
     const last = groups.at(-1);
     if (last && last.date === m.date) last.items.push(m);
@@ -49,7 +53,21 @@ export default async function MomentsPage({
 
   const hasMore = rows.length > limit;
   const moments = hasMore ? rows.slice(0, limit) : rows;
-  const groups = groupByDay(moments);
+
+  // 为每个 Moment 加载关联数据（图片/人物/地点/话题）
+  const momentsWithRelations = await Promise.all(
+    moments.map(async (m) => {
+      const [media, people, places, topics] = await Promise.all([
+        repo.media.listByMoment(m.id),
+        repo.people.listByMoment(m.id),
+        repo.places.listByMoment(m.id),
+        repo.topics.listByMoment(m.id),
+      ]);
+      return { ...m, media, people, places, topics };
+    })
+  );
+
+  const groups = groupByDay(momentsWithRelations);
 
   const keepShow = show ? `&show=${limit}` : "";
 
@@ -105,35 +123,14 @@ export default async function MomentsPage({
 
                 <ul className="mt-6 space-y-6">
                   {g.items.map((m) => (
-                    <li key={m.id} className="flex gap-5">
-                      <MomentTime
-                        at={m.occurredAt}
-                        dayKey={m.date}
-                        className="w-16 shrink-0 pt-0.5"
+                    <li key={m.id}>
+                      <MomentCard
+                        moment={m}
+                        media={m.media}
+                        people={m.people}
+                        places={m.places}
+                        topics={m.topics}
                       />
-                      <div className="min-w-0 flex-1 border-l border-line pl-5">
-                        <Link
-                          href={`/moments/${m.id}`}
-                          className="block transition-colors hover:text-brand"
-                        >
-                          <p className="measure whitespace-pre-wrap text-body text-ink">
-                            {m.content}
-                          </p>
-                        </Link>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-                          <span className="label-caps text-ink-faint">
-                            {m.type}
-                          </span>
-                          {m.whyItMatters && (
-                            <span className="label-caps text-brand">有注解</span>
-                          )}
-                          {m.isMemory && (
-                            <span className="label-caps text-accent">
-                              值得记住
-                            </span>
-                          )}
-                        </div>
-                      </div>
                     </li>
                   ))}
                 </ul>

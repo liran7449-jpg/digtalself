@@ -7,6 +7,11 @@ import { repo } from "@/repositories";
 import { formatDayHeading, toDayKey } from "@/domain/day-key";
 import { MOMENT_TYPE_LABELS } from "@/domain/labels";
 import { MomentEditor } from "./MomentEditor";
+import { PersonService } from "@/services/person-service";
+import { PlaceService } from "@/services/place-service";
+import { TopicService } from "@/services/topic-service";
+import { GoalLinkService } from "@/services/goal-link-service";
+import { MemoryService } from "@/services/memory-service";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +23,18 @@ export default async function MomentDetailPage({
   const { id } = await params;
   const moment = await repo.moments.find(id);
   if (!moment) notFound();
+
+  // 加载关联数据
+  const [linkedPeople, linkedPlaces, linkedTopics, linkedGoals, allGoals, isMemory, linkedMedia] =
+    await Promise.all([
+      PersonService.listByMoment(id),
+      PlaceService.listByMoment(id),
+      TopicService.listByMoment(id),
+      GoalLinkService.listByMoment(id),
+      repo.goals.listActive(),
+      MemoryService.isMomentMarkedAsMemory(id),
+      repo.media.listByMoment(id),
+    ]);
 
   const today = toDayKey();
   const isToday = moment.date === today;
@@ -45,7 +62,16 @@ export default async function MomentDetailPage({
         </header>
 
         <div className="mt-11">
-          <MomentEditor moment={moment} />
+          <MomentEditor
+            moment={moment}
+            linkedPeople={linkedPeople}
+            linkedPlaces={linkedPlaces}
+            linkedTopics={linkedTopics}
+            linkedGoals={linkedGoals}
+            availableGoals={allGoals}
+            linkedMedia={linkedMedia}
+            isMemory={isMemory}
+          />
         </div>
       </article>
 

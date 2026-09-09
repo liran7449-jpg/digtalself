@@ -1,13 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Label } from "@/components/ui/Primitives";
-import { MomentTime } from "@/components/moment/MomentTime";
-import type { Moment } from "@/domain/models";
+import { MomentCard } from "@/components/moment/MomentCard";
+import type { Moment, Media, Person, Place, Topic } from "@/domain/models";
 import { deleteMoment } from "./actions";
 
-function Row({ moment }: { moment: Moment }) {
+interface MomentWithRelations extends Moment {
+  media?: Media[];
+  people?: Person[];
+  places?: Place[];
+  topics?: Topic[];
+}
+
+function Row({ moment }: { moment: MomentWithRelations }) {
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -18,61 +24,49 @@ function Row({ moment }: { moment: Moment }) {
   }
 
   return (
-    <li className="group flex gap-5">
-      <MomentTime
-        at={moment.occurredAt}
-        dayKey={moment.date}
-        className="w-16 shrink-0 pt-0.5"
+    <li className="group relative">
+      <MomentCard
+        moment={moment}
+        media={moment.media}
+        people={moment.people}
+        places={moment.places}
+        topics={moment.topics}
       />
-      <div className="flex-1 border-l border-line pl-5">
-        <Link
-          href={`/moments/${moment.id}`}
-          className="block transition-colors hover:text-brand"
-        >
-          <p className="measure whitespace-pre-wrap text-body text-ink">
-            {moment.content}
-          </p>
-        </Link>
-        <div className="mt-1.5 flex items-center gap-4">
-          <span className="label-caps text-ink-faint">{moment.type}</span>
-          {moment.whyItMatters && (
-            <span className="label-caps text-brand">有注解</span>
-          )}
 
-          {/* 删除是硬删除，所以要一次确认 */}
-          {confirming ? (
-            <span className="flex items-center gap-3">
-              <button
-                onClick={remove}
-                disabled={pending}
-                className="cursor-pointer text-label text-danger underline decoration-danger/40 underline-offset-2"
-              >
-                {pending ? "删除中…" : "确认删除"}
-              </button>
-              <button
-                onClick={() => setConfirming(false)}
-                className="cursor-pointer text-label text-ink-muted"
-              >
-                取消
-              </button>
-            </span>
-          ) : (
+      {/* 删除按钮 */}
+      <div className="absolute right-0 top-0">
+        {confirming ? (
+          <span className="flex items-center gap-3">
             <button
-              onClick={() => setConfirming(true)}
-              className="cursor-pointer text-label text-ink-faint opacity-0 transition-opacity
-                hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
-              aria-label={`删除这条记录：${moment.content.slice(0, 20)}`}
+              onClick={remove}
+              disabled={pending}
+              className="text-small text-danger hover:underline disabled:text-ink-faint"
             >
-              删除
+              {pending ? "删除中…" : "确认删除"}
             </button>
-          )}
-        </div>
+            <button
+              onClick={() => setConfirming(false)}
+              className="text-small text-ink-muted hover:text-ink"
+            >
+              取消
+            </button>
+          </span>
+        ) : (
+          <button
+            onClick={() => setConfirming(true)}
+            className="text-small text-ink-muted opacity-0 transition-opacity
+              hover:text-danger group-hover:opacity-100"
+            aria-label={`删除这条记录：${moment.content.slice(0, 20)}`}
+          >
+            删除
+          </button>
+        )}
       </div>
     </li>
   );
 }
 
-export function MomentList({ moments }: { moments: Moment[] }) {
+export function MomentList({ moments }: { moments: MomentWithRelations[] }) {
   if (moments.length === 0) {
     return (
       <section>

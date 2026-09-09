@@ -7,12 +7,17 @@ import type { DayKey, MonthKey } from "@/domain/day-key";
 import type {
   Day,
   Goal,
+  GrowthEvidence,
   Insight,
+  Media,
   Memory,
   Moment,
   MorningSetupInput,
+  Person,
+  Place,
   PlanItem,
   QuickCaptureInput,
+  Topic,
   User,
 } from "@/domain/models";
 import type {
@@ -211,6 +216,8 @@ export interface MemoryRepository {
   /** 默认只返回 active + confirmed，forgotten 不出现在用户视图里 */
   listVisible(limit?: number): Promise<Memory[]>;
   listByStatus(status: MemoryStatus): Promise<Memory[]>;
+  /** 根据 sourceId 查找 Memory（用于判断 Moment 是否已标记为 Memory） */
+  findBySourceId(sourceId: string): Promise<Memory | null>;
   create(
     input: Omit<Memory, "id" | "createdAt" | "updatedAt" | "status">,
   ): Promise<Memory>;
@@ -225,6 +232,59 @@ export interface InsightRepository {
   create(input: Omit<Insight, "id" | "createdAt">): Promise<Insight>;
   recent(limit: number): Promise<Insight[]>;
   rate(id: string, feedback: Insight["userFeedback"]): Promise<Insight>;
+}
+
+export interface PersonRepository {
+  findById(id: string): Promise<Person | null>;
+  findByName(name: string): Promise<Person | null>;
+  /** 查找或创建。用户在 Moment 输入「某人」时，系统自动建立 Person 记录 */
+  findOrCreate(name: string): Promise<Person>;
+  list(): Promise<Person[]>;
+  /** 查询 Moment 关联的所有 Person */
+  listByMoment(momentId: string): Promise<Person[]>;
+  update(id: string, patch: Partial<Pick<Person, "name" | "notes">>): Promise<Person>;
+}
+
+export interface PlaceRepository {
+  findById(id: string): Promise<Place | null>;
+  findByName(name: string): Promise<Place | null>;
+  findOrCreate(name: string): Promise<Place>;
+  list(): Promise<Place[]>;
+  /** 查询 Moment 关联的所有 Place */
+  listByMoment(momentId: string): Promise<Place[]>;
+  update(id: string, patch: Partial<Pick<Place, "name" | "notes">>): Promise<Place>;
+}
+
+export interface TopicRepository {
+  findById(id: string): Promise<Topic | null>;
+  findByName(name: string): Promise<Topic | null>;
+  findOrCreate(name: string): Promise<Topic>;
+  list(): Promise<Topic[]>;
+  /** 查询 Moment 关联的所有 Topic */
+  listByMoment(momentId: string): Promise<Topic[]>;
+}
+
+export interface MediaRepository {
+  findById(id: string): Promise<Media | null>;
+  /** 查询 Moment 关联的所有 Media */
+  listByMoment(momentId: string): Promise<Media[]>;
+  /** 上传并存储。返回 Media 记录（含 id 和 storageKey） */
+  create(input: {
+    userId: string;
+    file: Buffer;
+    type: string;
+    size: number;
+    width?: number;
+    height?: number;
+  }): Promise<Media>;
+  /** 删除文件和记录 */
+  delete(id: string): Promise<void>;
+}
+
+export interface GrowthEvidenceRepository {
+  findById(id: string): Promise<GrowthEvidence | null>;
+  list(): Promise<GrowthEvidence[]>;
+  create(input: Omit<GrowthEvidence, "id" | "createdAt" | "updatedAt">): Promise<GrowthEvidence>;
 }
 
 /** 全量导出。PRD 第 31 节把「用户能看到全部数据」列为 P0。 */
@@ -250,5 +310,10 @@ export interface Repositories {
   goals: GoalRepository;
   memories: MemoryRepository;
   insights: InsightRepository;
+  people: PersonRepository;
+  places: PlaceRepository;
+  topics: TopicRepository;
+  media: MediaRepository;
+  growthEvidences: GrowthEvidenceRepository;
   exports: ExportRepository;
 }

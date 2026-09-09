@@ -342,9 +342,14 @@ describe("Moment", () => {
     expect(await repo.moments.countByDate(today)).toBe(2);
   });
 
-  it("空内容被拒", async () => {
+  it("允许空内容：纯图片 moment 先建行、后关联图片", async () => {
     const { repo } = await load();
-    await expect(repo.moments.capture({ content: "   " })).rejects.toThrow();
+
+    // capture() 的入参里没有图片 —— 图片是 moment 建好之后才插 momentMedia 的。
+    // 所以「不能既没文字又没图片」这条规则在这一层无法判断，只能放 action 层。
+    // 这里放开是为了支持「只上传图片」，不是放弃校验。
+    const m = await repo.moments.capture({ content: "   " });
+    expect(m.content).toBe("");
   });
 
   it("删除是硬删除", async () => {

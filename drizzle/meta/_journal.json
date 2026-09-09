@@ -29,6 +29,20 @@
       "when": 1788876547538,
       "tag": "0003_plain_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788921923690,
+      "tag": "0004_dear_white_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788922140142,
+      "tag": "0005_same_hulk",
+      "breakpoints": true
     }
   ]
 }

@@ -134,9 +134,10 @@ export const momentSchema = z.object({
 });
 export type Moment = z.infer<typeof momentSchema>;
 
-/** Quick Capture 的输入。PRD 第 10 节：最低摩擦，只有文字是必需的。 */
+/** Quick Capture 的输入。PRD 第 10 节：最低摩擦，只有文字是必需的。
+ * 注：现在支持只上传图片，所以 content 可以为空字符串 */
 export const quickCaptureSchema = z.object({
-  content: z.string().trim().min(1, "写点什么").max(20000),
+  content: z.string().trim().max(20000).default(""),
   type: z.enum(MOMENT_TYPE_VALUES).default("thought"),
   mediaPaths: z.array(z.string()).default([]),
 });
@@ -188,3 +189,59 @@ export const insightSchema = z.object({
   createdAt: ts,
 });
 export type Insight = z.infer<typeof insightSchema>;
+
+// ---------------------------------------------------------------- Person
+export const personSchema = z.object({
+  id,
+  name: z.string().min(1).max(100),
+  notes: z.string().max(2000).nullable(),
+  createdAt: ts,
+  updatedAt: ts,
+});
+export type Person = z.infer<typeof personSchema>;
+
+// ---------------------------------------------------------------- Place
+export const placeSchema = z.object({
+  id,
+  name: z.string().min(1).max(100),
+  notes: z.string().max(2000).nullable(),
+  createdAt: ts,
+  updatedAt: ts,
+});
+export type Place = z.infer<typeof placeSchema>;
+
+// ---------------------------------------------------------------- Topic
+export const topicSchema = z.object({
+  id,
+  name: z.string().min(1).max(60),
+  createdAt: ts,
+  updatedAt: ts,
+});
+export type Topic = z.infer<typeof topicSchema>;
+
+// ---------------------------------------------------------------- Media
+export const mediaSchema = z.object({
+  id,
+  userId: z.string(),
+  storageKey: z.string(),
+  type: z.string(), // MIME type
+  size: z.number().int().positive(),
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+  thumbnailKey: z.string().nullable(),
+  createdAt: ts,
+  updatedAt: ts,
+});
+export type Media = z.infer<typeof mediaSchema>;
+
+// ---------------------------------------------------------------- Growth Evidence
+export const growthEvidenceSchema = z.object({
+  id,
+  content: z.string().min(1).max(2000),
+  sourceType: z.string().nullable(), // 'moment' | 'goal' | ...
+  sourceId: id.nullable(),
+  markedAt: ts,
+  createdAt: ts,
+  updatedAt: ts,
+});
+export type GrowthEvidence = z.infer<typeof growthEvidenceSchema>;
