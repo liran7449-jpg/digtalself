@@ -118,7 +118,6 @@ export default async function DayPage({
   const next = addDays(date, 1);
   const hasNext = !isFutureDay(next, today);
 
-  const doneCount = plans.filter((p) => p.status === "completed").length;
   // 反思也算「留下了什么」—— 只写了反思的一天不该显示成空白
   const isEmpty =
     !day?.mood &&
@@ -204,11 +203,9 @@ export default async function DayPage({
               <>
                 <Rule />
                 <section>
+                  {/* 同 Today：不显示完成率，不给一天打分（090823 文档 3.2 节） */}
                   <div className="flex items-baseline justify-between gap-4">
                     <Label>Your day</Label>
-                    <span className="text-small text-ink-muted">
-                      {doneCount}/{plans.length}
-                    </span>
                   </div>
                   <ul className="mt-4">
                     {plans.map((p) => (

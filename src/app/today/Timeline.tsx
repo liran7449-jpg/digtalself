@@ -351,18 +351,17 @@ export function Timeline({
     });
   }
 
-  const doneCount = items.filter((i) => i.status === "completed").length;
   const showCarry = carryable.count > 0 && !hiding;
 
   return (
     <section>
+      {/*
+        刻意不显示「已完成/总数」计数。090823 文档 3.2 节：
+        不给一天做 1–10 分评分，避免产品变成生活效率评分器。
+        YOUR DAY 代表今天真实发生过的一切，不是完成率。
+      */}
       <div className="flex items-baseline justify-between gap-4">
         <Label>Your day</Label>
-        {items.length > 0 && (
-          <span className="text-small text-ink-muted">
-            {doneCount}/{items.length}
-          </span>
-        )}
       </div>
 
       {/*

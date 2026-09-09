@@ -1,29 +1,63 @@
 /**
  * 测试用的临时库 + 临时媒体目录。
  *
- * 两个 env 都必须在 import repositories 之前设好：
- * - DIGITAL_SELF_DB：否则 db/client.ts 连到真实的 data/digital-self.db
- * - DIGITAL_SELF_MEDIA_ROOT：否则 media-repo.ts 把文件写进真实的 data/media/
+ * 隔离分两层：
+ * 1. vitest.config.ts 的 setupFiles（src/test/setup-env.ts）在**任何测试模块
+ *    被 import 之前**设好两个 env。这一层是必需的，因为 db/client.ts 和
+ *    media-repo.ts 都在模块顶层读 env，静态 import 会在 beforeAll 之前就
+ *    把路径固定住。
+ * 2. useTempDb() 给这个已经连上的库跑迁移，并在开头硬校验隔离是否真的生效。
  *
- * 后者是踩过的坑：media-repo 在模块顶层读这个 env（`const MEDIA_ROOT = ...`），
- * 一旦模块先被 import，之后再改 env 就没用了。测试必须用动态 import()。
+ * 关键：useTempDb 不再另建目录换 env —— 那样会和已建立的连接错开，
+ * 导致连接指向的库没有表。它给 setupFiles 已经指定的那个库建表。
+ *
+ * 这两个坑都踩过，而且都是静默的：
+ * - media.test.ts 把图片写进用户真实照片目录
+ * - services.test.ts 把测试数据写进用户真实数据库
+ * 所以有了 assertIsolated 这道会响的警报。
  */
 
-import { readFileSync } from "node:fs";
-import { mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, mkdirSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import Database from "better-sqlite3";
-import { readdirSync } from "node:fs";
 
+/**
+ * 硬守卫：确认进程真的连在临时库上，而不是用户的真实数据。
+ *
+ * 万一以后配置或 import 顺序把隔离弄坏，要让测试**大声失败**，
+ * 而不是静默把测试数据写进用户的日记。
+ */
+function assertIsolated(): void {
+  const dbPath = process.env.DIGITAL_SELF_DB;
+  const mediaRoot = process.env.DIGITAL_SELF_MEDIA_ROOT;
+  const tmp = resolve(tmpdir());
+
+  if (!dbPath || !resolve(dbPath).startsWith(tmp)) {
+    throw new Error(
+      `测试隔离失效：DIGITAL_SELF_DB = ${dbPath ?? "(未设置)"}，不在临时目录内。\n` +
+        `继续跑会把测试数据写进真实数据库。检查 vitest.config.ts 的 setupFiles。`,
+    );
+  }
+  if (!mediaRoot || !resolve(mediaRoot).startsWith(tmp)) {
+    throw new Error(
+      `测试隔离失效：DIGITAL_SELF_MEDIA_ROOT = ${mediaRoot ?? "(未设置)"}，不在临时目录内。\n` +
+        `继续跑会把图片写进用户真实照片目录。检查 vitest.config.ts 的 setupFiles。`,
+    );
+  }
+}
+
+/**
+ * 给 setupFiles 已指定的临时库建表。返回该库所在目录，供 dropTempDb 清理。
+ */
 export function useTempDb(): string {
-  const dir = mkdtempSync(join(tmpdir(), "ds-test-"));
-  const dbPath = join(dir, "test.db");
-  process.env.DIGITAL_SELF_DB = dbPath;
-  // 媒体文件也隔离到临时目录，绝不碰用户真实的照片
-  process.env.DIGITAL_SELF_MEDIA_ROOT = join(dir, "media");
+  assertIsolated();
 
-  // 直接读取 migration 文件并应用，避免 drizzle-kit 卡住
+  const dbPath = resolve(process.env.DIGITAL_SELF_DB!);
+  const dir = dirname(dbPath);
+  mkdirSync(dir, { recursive: true });
+
+  // 直接读 migration 文件并应用，绕开 drizzle-kit 在子进程里卡住的问题
   const db = new Database(dbPath);
   db.pragma("foreign_keys = ON");
 
@@ -33,8 +67,7 @@ export function useTempDb(): string {
     .sort();
 
   for (const file of migrationFiles) {
-    const sql = readFileSync(join(migrationDir, file), "utf8");
-    db.exec(sql);
+    db.exec(readFileSync(join(migrationDir, file), "utf8"));
   }
 
   db.close();
@@ -42,5 +75,9 @@ export function useTempDb(): string {
 }
 
 export function dropTempDb(dir: string): void {
+  // 再确认一次：只删临时目录，绝不误删项目里的东西
+  if (!resolve(dir).startsWith(resolve(tmpdir()))) {
+    throw new Error(`拒绝删除非临时目录：${dir}`);
+  }
   rmSync(dir, { recursive: true, force: true });
 }
