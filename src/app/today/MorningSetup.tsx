@@ -4,16 +4,14 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Primitives";
 import { MoodPicker, type MoodKey } from "@/components/state/MoodPicker";
-import { EnergyPicker, type EnergyKey } from "@/components/state/EnergyPicker";
 import { submitMorningSetup } from "./actions";
 
 /**
- * IA 第 9 节 Morning Setup。三步在一屏内渐进展开，不做分页向导。
+ * IA 第 9 节 Morning Setup。简化为两步：mood + focus。
  * 每一步都可跳过 —— 强制填写会让用户在状态不好的那天直接放弃打开产品。
  */
 export function MorningSetup({ greeting, dateLabel }: { greeting: string; dateLabel: string }) {
   const [mood, setMood] = useState<MoodKey | null>(null);
-  const [energy, setEnergy] = useState<EnergyKey | null>(null);
   const [focus, setFocus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -23,7 +21,6 @@ export function MorningSetup({ greeting, dateLabel }: { greeting: string; dateLa
     const fd = new FormData();
     if (withState) {
       if (mood) fd.set("mood", mood);
-      if (energy) fd.set("energy", energy);
       if (focus.trim()) fd.set("focus", focus.trim());
     }
     startTransition(async () => {
@@ -38,27 +35,17 @@ export function MorningSetup({ greeting, dateLabel }: { greeting: string; dateLa
         <p className="text-small text-ink-muted">{dateLabel}</p>
         <h1 className="mt-2.5 font-display text-display text-ink">{greeting}</h1>
         <p className="mt-5 measure text-lead text-ink-soft">
-          先看看今天的自己。这三项都可以跳过。
+          先看看今天的自己。这两项都可以跳过。
         </p>
       </header>
 
       <div className="mt-11 space-y-9">
         <section>
-          <Label>How are you feeling</Label>
+          <Label>现在感觉怎么样</Label>
           <div className="mt-3.5">
             <MoodPicker value={mood} onChange={setMood} />
           </div>
         </section>
-
-        {/* 选了 mood 才显示 energy，减少首屏压迫感 */}
-        {mood && (
-          <section className="animate-rise">
-            <Label>Energy</Label>
-            <div className="mt-3.5">
-              <EnergyPicker value={energy} onChange={setEnergy} />
-            </div>
-          </section>
-        )}
 
         {mood && (
           <section className="animate-rise">

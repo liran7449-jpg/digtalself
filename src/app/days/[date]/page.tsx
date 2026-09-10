@@ -14,35 +14,24 @@ import {
   toDayKey,
   type DayKey,
 } from "@/domain/day-key";
-import { ENERGY_LABELS, MOOD_LABELS } from "@/domain/labels";
+import { MOOD_LABELS } from "@/domain/labels";
 import type { PlanItem } from "@/domain/models";
 
 export const dynamic = "force-dynamic";
 
 function StateLine({
   mood,
-  energy,
 }: {
   mood: keyof typeof MOOD_LABELS | null;
-  energy: keyof typeof ENERGY_LABELS | null;
 }) {
-  if (!mood && !energy) return null;
+  if (!mood) return null;
   return (
     <p className="mt-4 flex items-center gap-2.5 text-small text-ink-muted">
-      {mood && (
-        <span
-          className={`size-2 shrink-0 rounded-full ${MOOD_LABELS[mood].dot}`}
-          aria-hidden="true"
-        />
-      )}
-      <span>
-        {[
-          mood ? MOOD_LABELS[mood].label : null,
-          energy ? `${ENERGY_LABELS[energy].label} energy` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-      </span>
+      <span
+        className={`size-2 shrink-0 rounded-full ${MOOD_LABELS[mood].color}`}
+        aria-hidden="true"
+      />
+      <span>{MOOD_LABELS[mood].zh}</span>
     </p>
   );
 }
@@ -171,7 +160,7 @@ export default async function DayPage({
           <h1 className="font-display text-display text-ink">
             {formatDayHeading(date, today)}
           </h1>
-          <StateLine mood={day?.mood ?? null} energy={day?.energy ?? null} />
+          <StateLine mood={day?.mood ?? null} />
           {isToday && (
             <Link
               href="/today"

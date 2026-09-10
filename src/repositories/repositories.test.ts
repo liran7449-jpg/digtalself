@@ -39,7 +39,6 @@ describe("Day 状态机", () => {
 
     const d1 = await repo.days.applyMorningSetup(today, {
       mood: "good",
-      energy: "high",
       focus: "写完存储层",
     });
     expect(d1.status).toBe("started");
@@ -49,7 +48,6 @@ describe("Day 状态机", () => {
     // 重复提交不该把状态推得更远
     const d2 = await repo.days.applyMorningSetup(today, {
       mood: "okay",
-      energy: null,
       focus: null,
     });
     expect(d2.status).toBe("started");
@@ -59,12 +57,11 @@ describe("Day 状态机", () => {
 
     // 已反思的一天仍可改 mood，但状态不能倒退回 started
     const d4 = await repo.days.applyMorningSetup(today, {
-      mood: "great",
-      energy: "low",
+      mood: "good",
       focus: "x",
     });
     expect(d4.status).toBe("reflected");
-    expect(d4.mood).toBe("great");
+    expect(d4.mood).toBe("good");
   });
 });
 
@@ -74,17 +71,15 @@ describe("Day 部分更新", () => {
     const date = addDays(toDayKey(), 20);
 
     await repo.days.applyMorningSetup(date, {
-      mood: "low",
-      energy: "low",
+      mood: "bad",
       focus: "工作太多了",
     });
 
     // 只改 mood，其他字段必须保持原样。
-    // 若误用 applyMorningSetup 实现此功能，focus 和 energy 会被清成 null。
+    // 若误用 applyMorningSetup 实现此功能，focus 会被清成 null。
     const after = await repo.days.updateState(date, { mood: "good" });
     expect(after.mood).toBe("good");
     expect(after.focus).toBe("工作太多了");
-    expect(after.energy).toBe("low");
   });
 
   it("显式传 null 才清空，不传则不动", async () => {
@@ -92,15 +87,13 @@ describe("Day 部分更新", () => {
     const date = addDays(toDayKey(), 21);
 
     await repo.days.applyMorningSetup(date, {
-      mood: "great",
-      energy: "high",
+      mood: "good",
       focus: "写完存储层",
     });
 
     const cleared = await repo.days.updateState(date, { focus: null });
     expect(cleared.focus).toBeNull();
-    expect(cleared.mood).toBe("great"); // 没传的不动
-    expect(cleared.energy).toBe("high");
+    expect(cleared.mood).toBe("good"); // 没传的不动
   });
 
   it("已反思的一天改状态不会让 status 倒退", async () => {
@@ -109,7 +102,6 @@ describe("Day 部分更新", () => {
 
     await repo.days.applyMorningSetup(date, {
       mood: "okay",
-      energy: "medium",
       focus: null,
     });
     await repo.days.markReflected(date);
@@ -144,13 +136,12 @@ describe("Day 晚间反思", () => {
     const date = addDays(toDayKey(), 301);
     await repo.days.ensure(date);
     await repo.days.applyMorningSetup(date, {
-      mood: "low",
-      energy: "low",
+      mood: "bad",
       focus: "撑过今天",
     });
 
     const d = await repo.days.saveReflection(date, { eveningMood: "good" });
-    expect(d.mood).toBe("low"); // 早上的还在
+    expect(d.mood).toBe("bad"); // 早上的还在
     expect(d.eveningMood).toBe("good");
     expect(d.focus).toBe("撑过今天"); // focus 也不能被清掉
   });
@@ -246,13 +237,12 @@ describe("Day 顺延提示", () => {
     const date = addDays(toDayKey(), 311);
     await repo.days.ensure(date);
     await repo.days.applyMorningSetup(date, {
-      mood: "great",
-      energy: "high",
+      mood: "good",
       focus: "写完那份东西",
     });
 
     const d = await repo.days.dismissCarry(date);
-    expect(d.mood).toBe("great");
+    expect(d.mood).toBe("good");
     expect(d.focus).toBe("写完那份东西");
     expect(d.status).toBe("started");
   });
@@ -270,7 +260,6 @@ describe("Day 月度摘要", () => {
     const withDay = `${month}-10`;
     await repo.days.applyMorningSetup(withDay, {
       mood: "good",
-      energy: "high",
       focus: "有 focus",
     });
 

@@ -41,7 +41,6 @@ export interface UserRepository {
 export interface DaySummary {
   date: DayKey;
   mood: Day["mood"];
-  energy: Day["energy"];
   status: Day["status"] | null;
   momentCount: number;
   hasFocus: boolean;
@@ -65,7 +64,7 @@ export interface DayRepository {
    */
   updateState(
     date: DayKey,
-    patch: Partial<Pick<Day, "mood" | "energy" | "focus">>,
+    patch: Partial<Pick<Day, "mood" | "focus">>,
   ): Promise<Day>;
   markReadyToReflect(date: DayKey): Promise<Day>;
   markReflected(date: DayKey): Promise<Day>;

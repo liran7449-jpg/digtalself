@@ -7,7 +7,6 @@
 import { z } from "zod";
 import {
   DAY_STATUS_VALUES,
-  ENERGY_VALUES,
   GOAL_STATUS_VALUES,
   INSIGHT_FEEDBACK_VALUES,
   INSIGHT_TYPE_VALUES,
@@ -48,7 +47,6 @@ export const daySchema = z.object({
   date: dayKey,
   status: z.enum(DAY_STATUS_VALUES),
   mood: z.enum(MOOD_VALUES).nullable(),
-  energy: z.enum(ENERGY_VALUES).nullable(),
   focus: z.string().max(280).nullable(),
   theme: z.string().max(120).nullable(),
   /** 晚上的心情，不覆盖早上那个 —— 两个一起看才有一天的走向 */
@@ -64,10 +62,9 @@ export const daySchema = z.object({
 });
 export type Day = z.infer<typeof daySchema>;
 
-/** Morning Setup 三步的输入。全部可跳过 —— IA 第 6.1 节：绝不强制填写。 */
+/** Morning Setup 的输入。全部可跳过 —— IA 第 6.1 节：绝不强制填写。 */
 export const morningSetupSchema = z.object({
   mood: z.enum(MOOD_VALUES).nullable(),
-  energy: z.enum(ENERGY_VALUES).nullable(),
   focus: z.string().trim().max(280).nullable(),
 });
 

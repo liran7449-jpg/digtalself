@@ -16,7 +16,6 @@ function toDay(r: Row): Day {
     date: r.date,
     status: r.status as Day["status"],
     mood: r.mood as Day["mood"],
-    energy: r.energy as Day["energy"],
     focus: r.focus,
     theme: r.theme,
     eveningMood: r.eveningMood as Day["eveningMood"],
@@ -87,7 +86,6 @@ export const sqliteDayRepo: DayRepository = {
       .update(days)
       .set({
         mood: parsed.mood,
-        energy: parsed.energy,
         focus: parsed.focus,
         status: advance(day.status, "started"),
         updatedAt: now(),
@@ -109,7 +107,6 @@ export const sqliteDayRepo: DayRepository = {
 
     const set: Partial<Row> = { updatedAt: now() };
     if ("mood" in patch) set.mood = patch.mood ?? null;
-    if ("energy" in patch) set.energy = patch.energy ?? null;
     if ("focus" in patch) set.focus = patch.focus ?? null;
 
     // 动手改状态说明这一天已经开始了
@@ -193,7 +190,7 @@ export const sqliteDayRepo: DayRepository = {
 
   /**
    * 整月摘要。两个来源要合并：
-   * - days 表：mood / energy / focus / status
+   * - days 表：mood / focus / status
    * - moments 表：按天计数
    *
    * 必须合并而不能只查 days，因为 Quick Capture 不调 ensure()，
@@ -220,7 +217,6 @@ export const sqliteDayRepo: DayRepository = {
       byDate.set(r.date, {
         date: r.date,
         mood: r.mood as Day["mood"],
-        energy: r.energy as Day["energy"],
         status: r.status as Day["status"],
         momentCount: 0,
         hasFocus: Boolean(r.focus),
@@ -235,7 +231,6 @@ export const sqliteDayRepo: DayRepository = {
         byDate.set(date, {
           date,
           mood: null,
-          energy: null,
           status: null,
           momentCount: n,
           hasFocus: false,

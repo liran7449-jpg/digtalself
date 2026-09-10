@@ -51,7 +51,6 @@ export const days = sqliteTable("days", {
   date: text("date").primaryKey(),
   status: text("status").notNull().default("not_started"),
   mood: text("mood"),
-  energy: text("energy"),
   focus: text("focus"),
   theme: text("theme"),
   /**

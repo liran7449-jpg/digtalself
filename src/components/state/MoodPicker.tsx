@@ -46,11 +46,11 @@ export function MoodPicker({
               }`}
           >
             <span
-              className={`size-2 shrink-0 rounded-full ${m.dot} transition-transform duration-[var(--duration-quick)] ${
+              className={`size-2 shrink-0 rounded-full ${m.color} transition-transform duration-[var(--duration-quick)] ${
                 active ? "scale-125" : "scale-100 opacity-55"
               }`}
             />
-            {m.label}
+            {m.zh}
           </button>
         );
       })}

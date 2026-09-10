@@ -43,6 +43,13 @@
       "when": 1788922140142,
       "tag": "0005_same_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789033698244,
+      "tag": "0006_moaning_deadpool",
+      "breakpoints": true
     }
   ]
 }

@@ -127,8 +127,8 @@ export function MonthCalendar({
                 const future = isFutureDay(date, today);
                 const dayNum = Number(date.slice(8, 10));
 
-                const dot = s?.mood
-                  ? MOOD_LABELS[s.mood].dot
+                const dot = s?.mood && MOOD_LABELS[s.mood]
+                  ? MOOD_LABELS[s.mood].color
                   : hasRecords
                     ? "bg-ink-faint"
                     : null;

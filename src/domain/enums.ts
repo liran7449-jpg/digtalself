@@ -5,11 +5,9 @@
  */
 
 // ---------- My State ----------
-export const MOOD_VALUES = ["great", "good", "okay", "low", "heavy"] as const;
+/** 简化为三色系统：好 / 一般 / 不好 */
+export const MOOD_VALUES = ["good", "okay", "bad"] as const;
 export type Mood = (typeof MOOD_VALUES)[number];
-
-export const ENERGY_VALUES = ["low", "medium", "high"] as const;
-export type Energy = (typeof ENERGY_VALUES)[number];
 
 // ---------- Day ----------
 export const DAY_STATUS_VALUES = [

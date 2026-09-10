@@ -10,7 +10,6 @@ import {
   quickCaptureSchema,
 } from "@/domain/models";
 import {
-  ENERGY_VALUES,
   MOOD_VALUES,
   PLAN_PRIORITY_VALUES,
   type PlanPriority,
@@ -26,7 +25,6 @@ export async function submitMorningSetup(
 ): Promise<ActionResult> {
   const raw = {
     mood: (formData.get("mood") as string) || null,
-    energy: (formData.get("energy") as string) || null,
     focus: ((formData.get("focus") as string) || "").trim() || null,
   };
 
@@ -96,21 +94,17 @@ function parsePriority(raw: unknown): PlanPriority {
 const stateFieldSchema = z.discriminatedUnion("field", [
   z.object({ field: z.literal("mood"), value: z.enum(MOOD_VALUES).nullable() }),
   z.object({
-    field: z.literal("energy"),
-    value: z.enum(ENERGY_VALUES).nullable(),
-  }),
-  z.object({
     field: z.literal("focus"),
     value: z.string().trim().max(280).nullable(),
   }),
 ]);
 
 /**
- * 单项更新 mood / energy / focus。
+ * 单项更新 mood / focus。
  * 不复用 submitMorningSetup —— 那个是整体覆盖，用它改 mood 会把 focus 清空。
  */
 export async function updateDayState(
-  field: "mood" | "energy" | "focus",
+  field: "mood" | "focus",
   value: string | null,
 ): Promise<ActionResult> {
   const parsed = stateFieldSchema.safeParse({

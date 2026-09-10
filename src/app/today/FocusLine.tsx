@@ -112,7 +112,7 @@ export function FocusLine({ focus }: { focus: string | null }) {
         className="group -mx-2 mt-3 block w-full rounded-soft px-2 py-1 text-left
           transition-colors duration-[var(--duration-quick)] hover:bg-paper-raised"
       >
-        <span className="measure font-display text-title text-ink">{focus}</span>
+        <span className="measure text-body text-ink">{focus}</span>
         <span className="ml-3 align-middle text-small text-ink-faint opacity-0
           transition-opacity group-hover:opacity-100">
           改

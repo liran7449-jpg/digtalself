@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/Button";
 import { Label, Rule, Surface, AiSurface, Sparkle } from "@/components/ui/Primitives";
 import { MoodPicker } from "@/components/state/MoodPicker";
-import { EnergyPicker } from "@/components/state/EnergyPicker";
 import { Swatches } from "./Swatches";
 import { TypeScale } from "./TypeScale";
 import { TodayPreview } from "./TodayPreview";
@@ -93,20 +92,12 @@ export default function DesignSystemPage() {
         <Section
           n="04"
           title="My State"
-          note="情绪和精力是这个产品每天的入口。用点和条的形状差异传达强弱，不只靠颜色，色盲用户也能分辨。可以跳过。"
+          note="三色系统表达状态：好 / 一般 / 不好。简化的入口降低使用压力。"
         >
-          <div className="space-y-8">
-            <div>
-              <Label>How are you feeling</Label>
-              <div className="mt-3.5">
-                <MoodPicker />
-              </div>
-            </div>
-            <div>
-              <Label>Energy</Label>
-              <div className="mt-3.5">
-                <EnergyPicker />
-              </div>
+          <div>
+            <Label>现在感觉怎么样</Label>
+            <div className="mt-3.5">
+              <MoodPicker />
             </div>
           </div>
         </Section>

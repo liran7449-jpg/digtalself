@@ -37,7 +37,7 @@ export function ReflectionCard({
             <div className="flex items-center gap-2.5">
               <span
                 aria-hidden="true"
-                className={`size-2 shrink-0 rounded-full ${mood.dot}`}
+                className={`size-2 shrink-0 rounded-full ${mood.color}`}
               />
               <span className="text-body text-ink-soft">这一天{mood.zh}</span>
             </div>

@@ -1,27 +1,20 @@
 /**
- * Mood / Energy 的展示标签。
+ * Mood 的展示标签。
  *
  * 放在领域层而不是组件里：这些常量服务端和客户端都要读，
  * 而从 "use client" 模块 import 常量到服务端组件时，数组过不了 RSC 边界
  * （只有导出的组件函数会被转成引用，其他值会变成 undefined）。
  */
 
-import type { Energy, Mood, MomentType, PlanPriority } from "./enums";
+import type { Mood, MomentType, PlanPriority } from "./enums";
 
-export const MOOD_LABELS: Record<Mood, { label: string; zh: string; dot: string }> =
+/** 三色系统：好 / 一般 / 不好 */
+export const MOOD_LABELS: Record<Mood, { label: string; zh: string; color: string }> =
   {
-    great: { label: "Great", zh: "很好", dot: "bg-mood-great" },
-    good: { label: "Good", zh: "不错", dot: "bg-mood-good" },
-    okay: { label: "Okay", zh: "还行", dot: "bg-mood-okay" },
-    low: { label: "Low", zh: "低落", dot: "bg-mood-low" },
-    heavy: { label: "Heavy", zh: "沉重", dot: "bg-mood-heavy" },
+    good: { label: "Good", zh: "好", color: "bg-green-500" },
+    okay: { label: "Okay", zh: "一般", color: "bg-yellow-500" },
+    bad: { label: "Bad", zh: "不好", color: "bg-red-500" },
   };
-
-export const ENERGY_LABELS: Record<Energy, { label: string; bars: 1 | 2 | 3 }> = {
-  low: { label: "Low", bars: 1 },
-  medium: { label: "Medium", bars: 2 },
-  high: { label: "High", bars: 3 },
-};
 
 /**
  * 优先级标签。
