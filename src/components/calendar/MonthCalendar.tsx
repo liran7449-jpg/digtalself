@@ -160,7 +160,7 @@ export function MonthCalendar({
                       <Link
                         href={`/days/${date}`}
                         aria-label={`${dayNum} 日，${s!.momentCount} 条记录${
-                          s?.mood ? `，心情 ${MOOD_LABELS[s.mood].zh}` : ""
+                          s?.mood && MOOD_LABELS[s.mood] ? `，心情 ${MOOD_LABELS[s.mood].zh}` : ""
                         }`}
                         aria-current={isActive ? "page" : undefined}
                         className={`${base} mx-auto cursor-pointer ${

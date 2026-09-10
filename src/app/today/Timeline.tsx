@@ -10,9 +10,7 @@ import { PRIORITY_LABELS } from "@/domain/labels";
 import type { CarryOverResult } from "@/repositories/types";
 import {
   addPlanItem,
-  carryOverToToday,
   deletePlanItem,
-  dismissCarryOver,
   setPlanPriority,
   setPlanStatus,
   updatePlanItem,
@@ -324,23 +322,11 @@ function ItemRow({ item }: { item: PlanItem }) {
   );
 }
 
-export function Timeline({
-  items,
-  carryable,
-}: {
-  items: PlanItem[];
-  /** 有多少项可以从前一天顺延过来。count 为 0 时不显示入口。 */
-  carryable: CarryOverResult;
-}) {
+export function Timeline({ items }: { items: PlanItem[] }) {
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  /**
-   * 只用于点「不用」后立刻收起，等服务端往返完成。
-   * 真正的记忆在 day.carryDismissed（落库），所以刷新后也不会再问 ——
-   * 之前只有这个客户端状态，刷新提示就又冒出来了。
-   */
-  const [hiding, setHiding] = useState(false);
+  const [showDone, setShowDone] = useState(false);
 
   function add(fd: FormData) {
     setError(null);
@@ -351,7 +337,13 @@ export function Timeline({
     });
   }
 
-  const showCarry = carryable.count > 0 && !hiding;
+  /**
+   * 已完成的安静收成一行，不占视觉空间。
+   * 跳过的留在主列表里（淡显 + 「跳过」标签）—— 那是主动的决定，
+   * 不是「做完了」，收进「已完成 N 件」里会歪曲它的含义。
+   */
+  const done = items.filter((i) => i.status === "completed");
+  const active = items.filter((i) => i.status !== "completed");
 
   return (
     <section>
@@ -360,65 +352,46 @@ export function Timeline({
         不给一天做 1–10 分评分，避免产品变成生活效率评分器。
         YOUR DAY 代表今天真实发生过的一切，不是完成率。
       */}
-      <div className="flex items-baseline justify-between gap-4">
-        <Label>Your day</Label>
-      </div>
-
-      {/*
-        顺延入口。只在真有东西可顺延时出现，用陈述而非催促的语气 ——
-        产品的前提是不评判（Product Bible 第 4 节）。
-      */}
-      {showCarry && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card
-          border border-line bg-paper-sunken px-5 py-3.5">
-          <p className="text-small text-ink-soft">
-            上一次还有 {carryable.count} 件没做完。
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() =>
-                startTransition(async () => {
-                  const res = await carryOverToToday();
-                  if (!res.ok) setError(res.error);
-                })
-              }
-              disabled={pending}
-              className="min-h-10 cursor-pointer px-1 text-small text-brand underline
-                decoration-brand/30 underline-offset-4 transition-colors
-                hover:text-brand-hover disabled:opacity-50"
-            >
-              {pending ? "正在带过来…" : "带到今天"}
-            </button>
-            <button
-              onClick={() => {
-                setHiding(true); // 先收起，别等往返
-                startTransition(async () => {
-                  const res = await dismissCarryOver();
-                  if (!res.ok) {
-                    setError(res.error ?? "操作失败。");
-                    setHiding(false);
-                  }
-                });
-              }}
-              className="min-h-10 cursor-pointer px-1 text-small text-ink-muted
-                transition-colors hover:text-ink"
-            >
-              不用
-            </button>
-          </div>
-        </div>
-      )}
+      <Label>Your day</Label>
 
       {items.length === 0 && !adding ? (
-        <p className="mt-3.5 measure text-body text-ink-muted">
+        <p className="mt-3 text-body text-ink-muted">
           今天还没有安排。可以先什么都不排。
         </p>
       ) : (
-        <ul className="mt-4">
-          {items.map((i) => (
-            <ItemRow key={i.id} item={i} />
-          ))}
-        </ul>
+        <>
+          {active.length > 0 && (
+            <ul className="mt-3">
+              {active.map((i) => (
+                <ItemRow key={i.id} item={i} />
+              ))}
+            </ul>
+          )}
+
+          {/* 完成的事收成一行，点开才展开 —— 已经做完的不需要一直占地方 */}
+          {done.length > 0 && (
+            <div className={active.length > 0 ? "mt-4" : "mt-3"}>
+              <button
+                onClick={() => setShowDone((v) => !v)}
+                aria-expanded={showDone}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5
+                  text-small text-ink-muted transition-colors hover:text-ink"
+              >
+                <span className="text-brand">✓</span>
+                今天已完成 {done.length} 件
+                <span className="text-ink-faint">{showDone ? "收起" : "看看"}</span>
+              </button>
+
+              {showDone && (
+                <ul className="animate-rise mt-1.5">
+                  {done.map((i) => (
+                    <ItemRow key={i.id} item={i} />
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {adding ? (

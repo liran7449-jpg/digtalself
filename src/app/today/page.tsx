@@ -1,5 +1,4 @@
 import { AppShell } from "@/components/layout/AppShell";
-import { Rule } from "@/components/ui/Primitives";
 import { repo } from "@/repositories";
 import { formatDayLong, greeting, toDayKey } from "@/domain/day-key";
 import { MorningSetup } from "./MorningSetup";
@@ -28,12 +27,9 @@ export default async function TodayPage() {
     );
   }
 
-  const [plans, moments, peeked] = await Promise.all([
+  const [plans, moments] = await Promise.all([
     repo.plans.listByDate(date),
     repo.moments.listByDate(date),
-    // 只读探测。不在这里直接顺延 —— 渲染是 GET，不该有副作用，
-    // 而且 Next 可能重复渲染。自动顺延在 Morning Setup 提交时发生。
-    repo.plans.peekCarryable(date),
   ]);
 
   // 为每个 Moment 加载关联数据（图片/人物/地点/话题）
@@ -46,41 +42,51 @@ export default async function TodayPage() {
         repo.topics.listByMoment(m.id),
       ]);
       return { ...m, media, people, places, topics };
-    })
+    }),
   );
 
-  // 说过「不用」就别再问。这个判断必须基于落库的标记 ——
-  // 只存客户端状态的话，刷新后提示又冒出来。
-  const carryable = day.carryDismissed ? { count: 0, from: null } : peeked;
+  // 没做完的事只在 End My Day 问一次，白天不催
+  const unfinishedCount = plans.filter(
+    (p) => p.status === "planned" || p.status === "in_progress",
+  ).length;
 
   return (
     <AppShell current="/today">
-      <div className="space-y-11">
-        <header>
-          <p className="text-small text-ink-muted">{dateLabel}</p>
-          <h1 className="mt-2.5 font-display text-display text-ink">
-            {greeting(now)}
-          </h1>
-          <div className="mt-4">
-            <MyState day={day} />
+      {/*
+        左右分栏：左边是「今天的意图」（状态 + 日程），右边是「今天的真实」（记录流）。
+        分开的理由是这两件事的节奏不同 —— 意图早上定一次，记录整天在长。
+        挤在一栏里会让页面越用越长，而且读的时候要一直往下滚才能看到今天写了什么。
+
+        左栏窄且 sticky 常驻：状态和日程是「参照」，滚动看记录时不该消失。
+        窄屏堆叠，左栏在上（先知道今天什么状态，再看记录）。
+      */}
+      <div className="flex flex-col gap-12 lg:grid lg:grid-cols-[290px_minmax(0,1fr)] lg:gap-x-14">
+        <div className="space-y-6 lg:sticky lg:top-10 lg:self-start">
+          <header>
+            <p className="text-small text-ink-muted">{dateLabel}</p>
+            <h1 className="mt-2.5 font-display text-display text-ink">
+              {greeting(now)}
+            </h1>
+            <div className="mt-4">
+              <MyState day={day} />
+            </div>
+          </header>
+
+          <FocusLine focus={day.focus} />
+
+          <Timeline items={plans} />
+
+          <div className="border-t border-line pt-7">
+            <EndMyDay day={day} unfinishedCount={unfinishedCount} />
           </div>
-        </header>
+        </div>
 
-        <FocusLine focus={day.focus} />
+        <div className="space-y-10">
+          {/* 输入条常驻顶部：写完的内容直接落到下面流的顶部，视线不用来回跳 */}
+          <MomentComposerWrapper />
 
-        <Rule />
-
-        <Timeline items={plans} carryable={carryable} />
-
-        <Rule />
-
-        <MomentComposerWrapper />
-
-        <MomentList moments={momentsWithRelations} />
-
-        <Rule />
-
-        <EndMyDay day={day} />
+          <MomentList moments={momentsWithRelations} />
+        </div>
       </div>
     </AppShell>
   );

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { repo } from "@/repositories";
-import { toDayKey } from "@/domain/day-key";
+import { addDays, toDayKey } from "@/domain/day-key";
 import {
   eveningReflectionSchema,
   morningSetupSchema,
@@ -34,12 +34,19 @@ export async function submitMorningSetup(
   }
 
   const date = toDayKey();
-  await repo.days.applyMorningSetup(date, parsed.data);
+  const day = await repo.days.applyMorningSetup(date, parsed.data);
 
-  // 新的一天真正开始的时刻，把上一次没做完的带过来。
-  // 放这里而不是放页面渲染里：渲染是 GET，不该有副作用。
-  // carryOverUnfinished 幂等，重复提交 Morning Setup 不会重复生成。
-  await repo.plans.carryOverUnfinished(date);
+  /**
+   * 新的一天开始时静默把没做完的带过来 —— 不弹横幅、不提示。
+   *
+   * 但如果昨晚在 End My Day 说过「就这样吧」，那是明确的决定，
+   * 早上不能悄悄推翻它。dismissCarry 当时标在了今天这一行上。
+   *
+   * carryOverUnfinished 幂等，重复提交 Morning Setup 不会重复生成。
+   */
+  if (!day.carryDismissed) {
+    await repo.plans.carryOverUnfinished(date);
+  }
 
   revalidatePath("/today");
   return { ok: true };
@@ -198,15 +205,32 @@ export async function addPlanItem(formData: FormData): Promise<ActionResult> {
 }
 
 /**
- * 把最近一天未完成的项顺延过来。
- * 复制而非搬移 —— 源日期保留自己的记录，Day 视图的历史不能被改写。
+ * 把今天没做完的推到明天。在 End My Day 时问，不在早上催。
+ *
+ * 复制而非搬移 —— 今天保留自己的记录，Day 视图的历史不能被改写。
+ * carryOverUnfinished 的语义是「往回找最近有未完成项的一天」，
+ * 所以对明天调用它正好会捞到今天的未完成项，不需要另写反向方法。
  */
-export async function carryOverToToday(): Promise<
+export async function carryUnfinishedToTomorrow(): Promise<
   ActionResult & { count?: number }
 > {
-  const res = await repo.plans.carryOverUnfinished(toDayKey());
+  const tomorrow = addDays(toDayKey(), 1);
+  const res = await repo.plans.carryOverUnfinished(tomorrow);
   revalidatePath("/today");
   return { ok: true, count: res.count };
+}
+
+/**
+ * 说「就这样吧」——今天没做完的不带走。
+ *
+ * 标记在**明天**那一行上：明天早上 Morning Setup 会检查这个标记，
+ * 否则自动顺延会悄悄推翻这个决定。
+ */
+export async function declineCarryToTomorrow(): Promise<ActionResult> {
+  const tomorrow = addDays(toDayKey(), 1);
+  await repo.days.dismissCarry(tomorrow);
+  revalidatePath("/today");
+  return { ok: true };
 }
 
 export async function endMyDay(): Promise<ActionResult> {
@@ -242,12 +266,5 @@ export async function submitReflection(
 
   revalidatePath("/today");
   revalidatePath(`/days/${date}`);
-  return { ok: true };
-}
-
-/** 记下「不用」，别再问。落库，否则刷新后提示又冒出来。 */
-export async function dismissCarryOver(): Promise<ActionResult> {
-  await repo.days.dismissCarry(toDayKey());
-  revalidatePath("/today");
   return { ok: true };
 }
