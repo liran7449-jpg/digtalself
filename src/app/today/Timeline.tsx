@@ -146,21 +146,11 @@ function ItemRow({ item }: { item: PlanItem }) {
         />
       )}
 
-      <div className="flex items-start gap-4 py-3.5 pl-3">
-        <span
-          className={`w-12 shrink-0 pt-0.5 font-mono text-small tabular-nums ${
-            dimmed ? "text-ink-faint" : "text-ink-muted"
-          }`}
-        >
-          {item.startAt ?? "—"}
-        </span>
-
-        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+      <div className="flex items-start gap-3 py-3.5 pl-3">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
           <input
             type="checkbox"
             checked={done}
-            // 不因 pending 而 disabled：点完立刻锁住会让人以为点失败了。
-            // 乐观状态已经给出即时反馈，重复点击由服务端幂等处理。
             disabled={skipped}
             onChange={() => {
               const next = done ? "planned" : "completed";
@@ -174,77 +164,31 @@ function ItemRow({ item }: { item: PlanItem }) {
               disabled:cursor-not-allowed disabled:opacity-40"
             aria-label={`标记「${item.title}」${done ? "未完成" : "已完成"}`}
           />
-          <span className="min-w-0">
+
+          <label className="min-w-0 flex-1 cursor-pointer">
             <span
-              className={`text-body ${
+              className={`block text-body ${
                 done
                   ? "text-ink-faint line-through decoration-line-strong"
                   : priorityText(priority, { dimmed })
               }`}
             >
               {item.title}
+              {item.fromAi && (
+                <Sparkle
+                  className="ml-2 inline size-3 align-baseline text-ai"
+                  aria-label="来自 AI 建议"
+                />
+              )}
             </span>
-            {item.fromAi && (
-              <Sparkle
-                className="ml-2 inline size-3 align-baseline text-ai"
-                aria-label="来自 AI 建议"
-              />
-            )}
 
-            {/* 顺延天数摆在明面上，让用户自己决定是不是该放掉它 */}
-            {(skipped || item.carryCount > 0) && (
-              <span className="ml-2.5 inline-flex gap-2.5 align-middle">
-                {skipped && (
-                  <span className="label-caps text-ink-faint">跳过</span>
-                )}
-                {item.carryCount > 0 && (
-                  <span
-                    className="label-caps text-ink-faint"
-                    title={`这件事已经跟着你 ${item.carryCount} 天`}
-                  >
-                    顺延 {item.carryCount} 天
-                  </span>
-                )}
-              </span>
-            )}
-          </span>
-        </label>
-
-        {/* 行内动作：默认隐形，hover 或键盘聚焦时出现 */}
-        <div
-          className="flex shrink-0 items-center gap-3 opacity-0 transition-opacity
-            duration-[var(--duration-quick)] focus-within:opacity-100 group-hover:opacity-100"
-        >
-          {confirmingDelete ? (
-            <>
-              <button
-                onClick={() => run(() => deletePlanItem(item.id))}
-                disabled={pending}
-                className="cursor-pointer text-label text-danger underline
-                  decoration-danger/40 underline-offset-2"
-              >
-                {pending ? "删除中…" : "确认"}
-              </button>
-              <button
-                onClick={() => setConfirmingDelete(false)}
-                className="cursor-pointer text-label text-ink-muted"
-              >
-                取消
-              </button>
-            </>
-          ) : (
-            <>
-              {/*
-                三档直选而非循环切换。
-                改优先级会让这一行按新顺序跳走，而行内按钮靠 hover 才显形 ——
-                循环切换要点第二下时按钮已经不在鼠标底下了，实际点不到。
-                一次点击到位就没有这个问题，也不用猜按钮的语义。
-              */}
+            {/* 优先级和操作按钮：hover 时才显示 */}
+            <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 opacity-0 transition-opacity duration-[var(--duration-quick)] group-hover:opacity-100">
               {!dimmed && (
                 <span
                   role="radiogroup"
                   aria-label={`「${item.title}」的优先级`}
-                  className="flex items-center gap-2"
+                  className="inline-flex items-center gap-1.5"
                 >
                   {PLAN_PRIORITY_VALUES.map((p) => {
                     const active = p === priority;
@@ -254,7 +198,8 @@ function ItemRow({ item }: { item: PlanItem }) {
                         role="radio"
                         aria-checked={active}
                         disabled={active}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.preventDefault();
                           setOptimisticPriority(p);
                           run(
                             () => setPlanPriority(item.id, p),
@@ -273,43 +218,51 @@ function ItemRow({ item }: { item: PlanItem }) {
                   })}
                 </span>
               )}
-              <button
-                onClick={() => setEditing(true)}
-                className="cursor-pointer text-label text-ink-faint transition-colors
-                  hover:text-brand"
-                aria-label={`编辑「${item.title}」`}
-              >
-                改
-              </button>
-              {!done && (
-                <button
-                  onClick={() => {
-                    const next = skipped ? "planned" : "skipped";
-                    setOptimistic(next);
-                    run(
-                      () => setPlanStatus(item.id, next),
-                      () => setOptimistic(null),
-                    );
-                  }}
-                  className="cursor-pointer text-label text-ink-faint transition-colors
-                    hover:text-ink"
-                  aria-label={
-                    skipped ? `恢复「${item.title}」` : `跳过「${item.title}」`
-                  }
-                >
-                  {skipped ? "恢复" : "跳过"}
-                </button>
+
+              {/* 操作按钮：改和删 */}
+              {!dimmed && (
+                <span className="inline-flex items-center gap-2.5">
+                  {confirmingDelete ? (
+                    <>
+                      <button
+                        onClick={() => run(() => deletePlanItem(item.id))}
+                        disabled={pending}
+                        className="cursor-pointer text-label text-danger underline
+                          decoration-danger/40 underline-offset-2"
+                      >
+                        {pending ? "删除中…" : "确认"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmingDelete(false)}
+                        className="cursor-pointer text-label text-ink-muted"
+                      >
+                        取消
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setEditing(true)}
+                        className="cursor-pointer text-label text-ink-faint transition-colors
+                          hover:text-brand"
+                        aria-label={`编辑「${item.title}」`}
+                      >
+                        改
+                      </button>
+                      <button
+                        onClick={() => setConfirmingDelete(true)}
+                        className="cursor-pointer text-label text-ink-faint transition-colors
+                          hover:text-danger"
+                        aria-label={`删除「${item.title}」`}
+                      >
+                        删
+                      </button>
+                    </>
+                  )}
+                </span>
               )}
-              <button
-                onClick={() => setConfirmingDelete(true)}
-                className="cursor-pointer text-label text-ink-faint transition-colors
-                  hover:text-danger"
-                aria-label={`删除「${item.title}」`}
-              >
-                删
-              </button>
-            </>
-          )}
+            </span>
+          </label>
         </div>
       </div>
 

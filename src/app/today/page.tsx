@@ -21,7 +21,7 @@ export default async function TodayPage() {
   // IA 第 8.1 节：今天还没初始化就先走 Morning Setup
   if (day.status === "not_started") {
     return (
-      <AppShell current="/today">
+      <AppShell current="/today" width="wide">
         <MorningSetup greeting={greeting(now)} dateLabel={dateLabel} />
       </AppShell>
     );
@@ -51,7 +51,7 @@ export default async function TodayPage() {
   ).length;
 
   return (
-    <AppShell current="/today">
+    <AppShell current="/today" width="wide">
       {/*
         左右分栏：左边是「今天的意图」（状态 + 日程），右边是「今天的真实」（记录流）。
         分开的理由是这两件事的节奏不同 —— 意图早上定一次，记录整天在长。
@@ -60,7 +60,7 @@ export default async function TodayPage() {
         左栏窄且 sticky 常驻：状态和日程是「参照」，滚动看记录时不该消失。
         窄屏堆叠，左栏在上（先知道今天什么状态，再看记录）。
       */}
-      <div className="flex flex-col gap-12 lg:grid lg:grid-cols-[290px_minmax(0,1fr)] lg:gap-x-14">
+      <div className="flex flex-col gap-12 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-x-14">
         <div className="space-y-6 lg:sticky lg:top-10 lg:self-start">
           <header>
             <p className="text-small text-ink-muted">{dateLabel}</p>
