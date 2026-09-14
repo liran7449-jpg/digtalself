@@ -23,7 +23,8 @@ const createdAt = timestamp("created_at", { mode: "date" })
 
 const updatedAt = timestamp("updated_at", { mode: "date" })
   .notNull()
-  .default(sql`now()`);
+  .default(sql`now()`)
+  .$onUpdate(() => sql`now()`);
 
 /** MVP 是单用户产品，这张表只会有一行，id 固定为 'me'。 */
 export const users = pgTable("users", {
