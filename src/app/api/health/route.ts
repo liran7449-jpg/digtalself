@@ -36,8 +36,8 @@ export async function GET() {
 
 async function checkDatabase(): Promise<{ type: string; connected: boolean }> {
   try {
-    // 简单查询测试连接 - 使用 SQL 原始查询
-    await db.run("SELECT 1");
+    // 简单查询测试连接 - 兼容 SQLite 和 PostgreSQL
+    await db.execute("SELECT 1");
 
     return {
       type: process.env.DATABASE_URL ? "postgresql" : "sqlite",
