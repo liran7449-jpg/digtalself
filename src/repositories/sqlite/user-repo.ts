@@ -55,7 +55,7 @@ export const sqliteUserRepo: UserRepository = {
     await this.getOrCreate();
     const rows = await db
       .update(users)
-      .set({ ...patch, updatedAt: now() })
+      .set({ ...patch })
       .where(eq(users.id, SELF_ID))
       .returning();
     return toUser(firstOrThrow(rows, "User", SELF_ID));

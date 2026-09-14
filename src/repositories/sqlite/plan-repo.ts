@@ -151,7 +151,7 @@ export const sqlitePlanRepo: PlanRepository = {
 
     const rows = await db
       .update(planItems)
-      .set({ status, updatedAt: now() })
+      .set({ status })
       .where(eq(planItems.id, id))
       .returning();
     return toPlan(firstOrThrow(rows, "PlanItem", id));
@@ -160,7 +160,7 @@ export const sqlitePlanRepo: PlanRepository = {
   async update(id, patch) {
     const rows = await db
       .update(planItems)
-      .set({ ...patch, updatedAt: now() })
+      .set({ ...patch })
       .where(eq(planItems.id, id))
       .returning();
     return toPlan(firstOrThrow(rows, "PlanItem", id));

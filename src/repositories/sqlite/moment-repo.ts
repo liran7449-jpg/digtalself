@@ -84,7 +84,7 @@ export const sqliteMomentRepo: MomentRepository = {
   async update(id, patch) {
     const rows = await db
       .update(moments)
-      .set({ ...patch, updatedAt: now() })
+      .set({ ...patch })
       .where(eq(moments.id, id))
       .returning();
     return toMoment(firstOrThrow(rows, "Moment", id));

@@ -84,7 +84,7 @@ export const sqliteMemoryRepo: MemoryRepository = {
     assertTransition("Memory", MEMORY_TRANSITIONS, current.status, "confirmed");
     const rows = await db
       .update(memories)
-      .set({ status: "confirmed", userConfirmed: true, updatedAt: now() })
+      .set({ status: "confirmed", userConfirmed: true })
       .where(eq(memories.id, id))
       .returning();
     return toMemory(firstOrThrow(rows, "Memory", id));
@@ -99,7 +99,7 @@ export const sqliteMemoryRepo: MemoryRepository = {
     assertTransition("Memory", MEMORY_TRANSITIONS, current.status, "forgotten");
     const rows = await db
       .update(memories)
-      .set({ status: "forgotten", updatedAt: now() })
+      .set({ status: "forgotten" })
       .where(eq(memories.id, id))
       .returning();
     return toMemory(firstOrThrow(rows, "Memory", id));
@@ -108,7 +108,7 @@ export const sqliteMemoryRepo: MemoryRepository = {
   async updateContent(id, content) {
     const rows = await db
       .update(memories)
-      .set({ content, userConfirmed: true, updatedAt: now() })
+      .set({ content, userConfirmed: true })
       .where(eq(memories.id, id))
       .returning();
     return toMemory(firstOrThrow(rows, "Memory", id));

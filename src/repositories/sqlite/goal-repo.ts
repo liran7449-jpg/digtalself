@@ -55,7 +55,7 @@ export const sqliteGoalRepo: GoalRepository = {
   async update(id, patch) {
     const rows = await db
       .update(goals)
-      .set({ ...patch, updatedAt: now() })
+      .set({ ...patch })
       .where(eq(goals.id, id))
       .returning();
     return toGoal(firstOrThrow(rows, "Goal", id));
@@ -68,7 +68,7 @@ export const sqliteGoalRepo: GoalRepository = {
 
     const rows = await db
       .update(goals)
-      .set({ status, updatedAt: now() })
+      .set({ status })
       .where(eq(goals.id, id))
       .returning();
     return toGoal(firstOrThrow(rows, "Goal", id));

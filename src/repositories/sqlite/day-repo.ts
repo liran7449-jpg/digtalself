@@ -88,7 +88,6 @@ export const sqliteDayRepo: DayRepository = {
         mood: parsed.mood,
         focus: parsed.focus,
         status: advance(day.status, "started"),
-        updatedAt: now(),
       })
       .where(eq(days.date, date))
       .returning();
@@ -105,7 +104,7 @@ export const sqliteDayRepo: DayRepository = {
   async updateState(date, patch) {
     const day = await ensure(date);
 
-    const set: Partial<Row> = { updatedAt: now() };
+    const set: Partial<Row> = {};
     if ("mood" in patch) set.mood = patch.mood ?? null;
     if ("focus" in patch) set.focus = patch.focus ?? null;
 
@@ -126,7 +125,6 @@ export const sqliteDayRepo: DayRepository = {
       .update(days)
       .set({
         status: advance(day.status, "ready_to_reflect"),
-        updatedAt: now(),
       })
       .where(eq(days.date, date))
       .returning();
@@ -137,7 +135,7 @@ export const sqliteDayRepo: DayRepository = {
     const day = await ensure(date);
     const rows = await db
       .update(days)
-      .set({ status: toReflected(day.status), updatedAt: now() })
+      .set({ status: toReflected(day.status) })
       .where(eq(days.date, date))
       .returning();
     return toDay(firstOrThrow(rows, "Day", date));
@@ -173,7 +171,7 @@ export const sqliteDayRepo: DayRepository = {
     await ensure(date);
     const rows = await db
       .update(days)
-      .set({ carryDismissed: true, updatedAt: now() })
+      .set({ carryDismissed: true })
       .where(eq(days.date, date))
       .returning();
     return toDay(firstOrThrow(rows, "Day", date));
