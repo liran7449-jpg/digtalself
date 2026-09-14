@@ -11,9 +11,14 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push",
+    "migrate:to-postgres": "tsx scripts/migrate-to-postgres.ts",
+    "migrate:media-to-r2": "tsx scripts/migrate-media-to-r2.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1131.0",
+    "@aws-sdk/lib-storage": "^3.1131.0",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.45.0",
