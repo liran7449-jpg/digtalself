@@ -27,6 +27,8 @@ export async function middleware(request: NextRequest) {
   const publicPaths = [
     "/login",
     "/api/auth/login",
+    "/api/debug-env",
+    "/api/health",
     "/_next",
     "/favicon.ico",
   ];
