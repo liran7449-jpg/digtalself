@@ -7,11 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
-import { resolve } from "path";
 import { repo } from "@/repositories";
-
-const MEDIA_ROOT = process.env.DIGITAL_SELF_MEDIA_ROOT || "data/media";
+import { storage } from "@/lib/storage";
 
 export async function GET(
   request: NextRequest,
@@ -27,18 +24,14 @@ export async function GET(
 
   // TODO: 多用户时检查 media.userId === session.userId
 
-  // 读取文件
-  // resolve 而不是 join：MEDIA_ROOT 可能是绝对路径，join 不会在绝对路径处重置，
-  // 会拼出 <cwd>/var/... 这种错位路径，读不到写进去的文件。
-  const fullPath = resolve(process.cwd(), MEDIA_ROOT, media.storageKey);
-  if (!existsSync(fullPath)) {
-    return NextResponse.json({ error: "File not found on disk" }, { status: 404 });
+  // 读取文件（通过存储适配层）
+  const buffer = await storage.read(media.storageKey);
+  if (!buffer) {
+    return NextResponse.json({ error: "File not found in storage" }, { status: 404 });
   }
 
-  const buffer = readFileSync(fullPath);
-
   // 返回文件
-  return new NextResponse(buffer, {
+  return new NextResponse(buffer as any, {
     status: 200,
     headers: {
       "Content-Type": media.type,
