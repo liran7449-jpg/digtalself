@@ -7,6 +7,7 @@ import { quickCaptureSchema } from "@/domain/models";
 import type { MomentType } from "@/domain/enums";
 import type { MomentRepository } from "../types";
 import { firstOrThrow, newId, now } from "./helpers";
+import { adaptTimestamp } from "./pg-adapter";
 
 type Row = typeof moments.$inferSelect;
 
@@ -45,7 +46,7 @@ export const sqliteMomentRepo: MomentRepository = {
         status: "saved",
         content: parsed.content,
         mediaPaths: parsed.mediaPaths,
-        occurredAt: at,
+        occurredAt: adaptTimestamp(at) as any,
       })
       .returning();
     return toMoment(rows[0]);

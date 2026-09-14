@@ -8,6 +8,7 @@ import { DAY_TRANSITIONS, canTransition } from "@/domain/transitions";
 import type { DayStatus } from "@/domain/enums";
 import type { DayRepository, DaySummary } from "../types";
 import { firstOrThrow, now } from "./helpers";
+import { adaptTimestamp } from "./pg-adapter";
 
 type Row = typeof days.$inferSelect;
 
@@ -158,9 +159,8 @@ export const sqliteDayRepo: DayRepository = {
         eveningMood: input.eveningMood ?? null,
         stayedWithYou: input.stayedWithYou?.trim() || null,
         learned: input.learned?.trim() || null,
-        reflectedAt: at,
+        reflectedAt: adaptTimestamp(at) as any,
         status: toReflected(day.status),
-        updatedAt: at,
       })
       .where(eq(days.date, date))
       .returning();
