@@ -17,6 +17,7 @@
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Primitives";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 
 interface MomentComposerProps {
   onSubmit: (data: {
@@ -47,6 +48,11 @@ export function MomentComposer({ onSubmit }: MomentComposerProps) {
   const [justSaved, setJustSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  // 图片预览相关
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +63,21 @@ export function MomentComposer({ onSubmit }: MomentComposerProps) {
 
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const openImagePreview = (index: number) => {
+    // 生成预览 URL
+    const urls = images.map((file) => URL.createObjectURL(file));
+    setPreviewUrls(urls);
+    setPreviewIndex(index);
+    setPreviewOpen(true);
+  };
+
+  const closeImagePreview = () => {
+    // 清理 URL
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    setPreviewUrls([]);
+    setPreviewOpen(false);
   };
 
   const addPerson = () => {
@@ -168,10 +189,14 @@ export function MomentComposer({ onSubmit }: MomentComposerProps) {
               <img
                 src={URL.createObjectURL(file)}
                 alt=""
-                className="h-full w-full rounded-soft object-cover"
+                className="h-full w-full cursor-pointer rounded-soft object-cover transition-opacity hover:opacity-80"
+                onClick={() => openImagePreview(i)}
               />
               <button
-                onClick={() => removeImage(i)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeImage(i);
+                }}
                 className="absolute right-1 top-1 flex size-5 items-center justify-center
                   rounded-full bg-black/60 text-xs text-white opacity-0 transition-opacity
                   hover:bg-black/80 group-hover:opacity-100"
@@ -369,6 +394,15 @@ export function MomentComposer({ onSubmit }: MomentComposerProps) {
 
         <span className="text-small text-ink-muted">⌘ + Enter 快速保存</span>
       </div>
+
+      {/* 图片预览 Lightbox */}
+      {previewOpen && (
+        <ImageLightbox
+          images={previewUrls}
+          initialIndex={previewIndex}
+          onClose={closeImagePreview}
+        />
+      )}
     </section>
   );
 }

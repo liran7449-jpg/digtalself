@@ -6,13 +6,18 @@
  * - 图片展示（1/2/3+ 张自适应布局）
  * - 人物/地点/话题标签
  * - 时间戳
- * - 点击进入详情页（View Mode）
+ * - 点击图片全屏预览
+ * - 点击内容进入详情页（View Mode）
  *
  * 符合优化需求 V1.0 第 3.2 节：Feed 状态设计
  */
 
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { MomentTime } from "@/components/moment/MomentTime";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import type { Moment, Media, Person, Place, Topic } from "@/domain/models";
 
 interface MomentCardProps {
@@ -30,7 +35,13 @@ interface MomentCardProps {
  * - 3 张：1 大 + 2 小
  * - 4+ 张：2x2 网格 + "+N" 标记
  */
-function ImageGrid({ images }: { images: Media[] }) {
+function ImageGrid({
+  images,
+  onImageClick,
+}: {
+  images: Media[];
+  onImageClick: (index: number) => void;
+}) {
   if (images.length === 0) return null;
 
   const displayImages = images.slice(0, 4);
@@ -42,7 +53,11 @@ function ImageGrid({ images }: { images: Media[] }) {
         <img
           src={`/api/v1/media/${images[0].id}`}
           alt=""
-          className="aspect-[3/2] w-full object-cover"
+          onClick={(e) => {
+            e.preventDefault();
+            onImageClick(0);
+          }}
+          className="aspect-[3/2] w-full cursor-pointer object-cover transition-opacity hover:opacity-90"
         />
       </div>
     );
@@ -51,12 +66,16 @@ function ImageGrid({ images }: { images: Media[] }) {
   if (images.length === 2) {
     return (
       <div className="mt-3 grid grid-cols-2 gap-2">
-        {images.map((img) => (
+        {images.map((img, i) => (
           <img
             key={img.id}
             src={`/api/v1/media/${img.id}`}
             alt=""
-            className="aspect-square w-full rounded-soft object-cover"
+            onClick={(e) => {
+              e.preventDefault();
+              onImageClick(i);
+            }}
+            className="aspect-square w-full cursor-pointer rounded-soft object-cover transition-opacity hover:opacity-90"
           />
         ))}
       </div>
@@ -69,14 +88,22 @@ function ImageGrid({ images }: { images: Media[] }) {
         <img
           src={`/api/v1/media/${images[0].id}`}
           alt=""
-          className="col-span-2 aspect-[2/1] w-full rounded-soft object-cover"
+          onClick={(e) => {
+            e.preventDefault();
+            onImageClick(0);
+          }}
+          className="col-span-2 aspect-[2/1] w-full cursor-pointer rounded-soft object-cover transition-opacity hover:opacity-90"
         />
-        {images.slice(1).map((img) => (
+        {images.slice(1).map((img, i) => (
           <img
             key={img.id}
             src={`/api/v1/media/${img.id}`}
             alt=""
-            className="aspect-square w-full rounded-soft object-cover"
+            onClick={(e) => {
+              e.preventDefault();
+              onImageClick(i + 1);
+            }}
+            className="aspect-square w-full cursor-pointer rounded-soft object-cover transition-opacity hover:opacity-90"
           />
         ))}
       </div>
@@ -87,7 +114,14 @@ function ImageGrid({ images }: { images: Media[] }) {
   return (
     <div className="mt-3 grid grid-cols-2 gap-2">
       {displayImages.map((img, i) => (
-        <div key={img.id} className="relative aspect-square overflow-hidden rounded-soft">
+        <div
+          key={img.id}
+          className="relative aspect-square cursor-pointer overflow-hidden rounded-soft transition-opacity hover:opacity-90"
+          onClick={(e) => {
+            e.preventDefault();
+            onImageClick(i);
+          }}
+        >
           <img
             src={`/api/v1/media/${img.id}`}
             alt=""
@@ -111,6 +145,17 @@ export function MomentCard({
   places = [],
   topics = [],
 }: MomentCardProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+
+  const handleImageClick = (index: number) => {
+    setPreviewIndex(index);
+    setPreviewOpen(true);
+  };
+
+  // 生成所有图片的 URL
+  const imageUrls = media.map((img) => `/api/v1/media/${img.id}`);
+
   return (
     <div className="flex gap-5">
       <MomentTime
@@ -130,10 +175,10 @@ export function MomentCard({
               {moment.content}
             </p>
           )}
-
-          {/* 图片 */}
-          <ImageGrid images={media} />
         </Link>
+
+        {/* 图片（可点击预览） */}
+        <ImageGrid images={media} onImageClick={handleImageClick} />
 
         {/* 元数据标签 */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -177,6 +222,15 @@ export function MomentCard({
             <span className="label-caps text-accent">值得记住</span>
           )}
         </div>
+
+        {/* 图片预览 Lightbox */}
+        {previewOpen && (
+          <ImageLightbox
+            images={imageUrls}
+            initialIndex={previewIndex}
+            onClose={() => setPreviewOpen(false)}
+          />
+        )}
       </div>
     </div>
   );
