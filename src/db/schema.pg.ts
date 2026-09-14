@@ -17,11 +17,11 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-const createdAt = timestamp("created_at", { mode: "date" })
+const createdAt = timestamp("created_at", { mode: "date", withTimezone: true })
   .notNull()
   .default(sql`now()`);
 
-const updatedAt = timestamp("updated_at", { mode: "date" })
+const updatedAt = timestamp("updated_at", { mode: "date", withTimezone: true })
   .notNull()
   .default(sql`now()`)
   .$onUpdate(() => sql`now()`);
@@ -47,7 +47,7 @@ export const days = pgTable("days", {
   eveningMood: text("evening_mood"),
   stayedWithYou: text("stayed_with_you"),
   learned: text("learned"),
-  reflectedAt: timestamp("reflected_at", { mode: "date" }),
+  reflectedAt: timestamp("reflected_at", { mode: "date", withTimezone: true }),
   carryDismissed: boolean("carry_dismissed").notNull().default(false),
   createdAt,
   updatedAt,
@@ -102,7 +102,7 @@ export const moments = pgTable(
     status: text("status").notNull().default("saved"),
     content: text("content").notNull().default(""),
     mediaPaths: jsonb("media_paths").$type<string[]>().notNull().default([]),
-    occurredAt: timestamp("occurred_at", { mode: "date" }).notNull(),
+    occurredAt: timestamp("occurred_at", { mode: "date", withTimezone: true }).notNull(),
     mood: text("mood"),
     type: text("type").notNull().default("thought"),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
@@ -198,7 +198,7 @@ export const growthEvidences = pgTable("growth_evidences", {
   content: text("content").notNull(),
   sourceType: text("source_type"),
   sourceId: text("source_id"),
-  markedAt: timestamp("marked_at", { mode: "date" }).notNull(),
+  markedAt: timestamp("marked_at", { mode: "date", withTimezone: true }).notNull(),
   createdAt,
   updatedAt,
 });
