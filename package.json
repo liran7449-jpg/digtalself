@@ -11,11 +11,17 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push",
+    "migrate:to-postgres": "tsx scripts/migrate-to-postgres.ts",
+    "migrate:media-to-r2": "tsx scripts/migrate-media-to-r2.ts",
+    "auth:hash-password": "node -e \"const bcrypt = require('bcryptjs'); const pwd = process.argv[1]; if (!pwd) { console.error('用法: npm run auth:hash-password <密码>'); process.exit(1); } console.log(bcrypt.hashSync(pwd, 10));\""
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.2",
+    "iron-session": "^9.0.1",
     "lucide-react": "^1.45.0",
     "next": "16.3.4",
     "react": "19.2.8",
@@ -25,6 +31,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20",
     "@types/react": "^19",
