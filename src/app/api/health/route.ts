@@ -36,14 +36,16 @@ export async function GET() {
 
 async function checkDatabase(): Promise<{ type: string; connected: boolean }> {
   try {
-    // 简单查询测试连接 - 兼容 SQLite 和 PostgreSQL
-    await db.execute("SELECT 1");
+    // 简单查询测试连接 - 使用 drizzle 的 sql 查询
+    const { sql } = await import("drizzle-orm");
+    await db.execute(sql`SELECT 1`);
 
     return {
       type: process.env.DATABASE_URL ? "postgresql" : "sqlite",
       connected: true,
     };
   } catch (error) {
+    console.error("Database health check failed:", error);
     return {
       type: process.env.DATABASE_URL ? "postgresql" : "sqlite",
       connected: false,
