@@ -34,7 +34,7 @@ export function createMediaRepository(): MediaRepository {
         .where(eq(momentMedia.momentId, momentId))
         .all();
 
-      return rows.map((r) => r.media);
+      return rows.map((r: { media: Media }) => r.media);
     },
 
     async create(input: {

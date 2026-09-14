@@ -42,7 +42,7 @@ async function migrate() {
   console.log("✅ 已连接到 SQLite 源数据库");
 
   // 连接 PostgreSQL（目标数据库）
-  const pgClient = postgres(DATABASE_URL, {
+  const pgClient = postgres(DATABASE_URL!, {
     max: 1,
   });
   const targetDb = drizzlePostgres(pgClient, { schema: schemaPostgres });

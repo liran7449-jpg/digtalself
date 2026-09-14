@@ -62,7 +62,7 @@ export const sqliteMemoryRepo: MemoryRepository = {
       .all();
 
     // sourceIds 是 JSON 数组，需要遍历查找
-    const match = rows.find((r) => r.sourceIds.includes(sourceId));
+    const match = rows.find((r: Row) => r.sourceIds.includes(sourceId));
     return match ? toMemory(match) : null;
   },
 
