@@ -22,7 +22,7 @@ function storageKeyFor(userId: string, id: string, mimeType: string): string {
 export function createMediaRepository(): MediaRepository {
   return {
     async findById(id: string): Promise<Media | null> {
-      const row = await db.select().from(media).where(eq(media.id, id)).get();
+      const row = await db.select().from(media).where(eq(media.id, id)).then(rows => rows[0]);
       return row ?? null;
     },
 
@@ -32,7 +32,7 @@ export function createMediaRepository(): MediaRepository {
         .from(momentMedia)
         .innerJoin(media, eq(momentMedia.mediaId, media.id))
         .where(eq(momentMedia.momentId, momentId))
-        .all();
+        ;
 
       return rows.map((r: { media: Media }) => r.media);
     },
@@ -83,7 +83,7 @@ export function createMediaRepository(): MediaRepository {
         updatedAt: new Date(),
       };
 
-      await db.insert(media).values(record).run();
+      await db.insert(media).values(record);
       return record;
     },
 
@@ -100,7 +100,7 @@ export function createMediaRepository(): MediaRepository {
       }
 
       // 删除数据库记录
-      await db.delete(media).where(eq(media.id, id)).run();
+      await db.delete(media).where(eq(media.id, id));
     },
   };
 }

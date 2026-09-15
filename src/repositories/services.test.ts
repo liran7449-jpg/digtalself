@@ -66,11 +66,13 @@ describe("Service 层", () => {
   it("GoalLinkService: linkToMoment 关联已存在的 Goal", async () => {
     const goal = await repo.goals.create({
       title: "学会 Next.js",
-      why: null,
-      desiredIdentity: null,
-      outcome: null,
+      description: null,
+      type: "personal",
+      priority: 3,
       startDate: null,
       targetDate: null,
+      completedDate: null,
+      parentGoalId: null,
     });
 
     const moment = await repo.moments.capture({ content: "看了 Next.js 文档", type: "thought" });

@@ -15,8 +15,7 @@ import Database from "better-sqlite3";
 import { drizzle as drizzleSQLite } from "drizzle-orm/better-sqlite3";
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schemaSQLite from "../src/db/schema";
-import * as schemaPostgres from "../src/db/schema.pg";
+import * as schema from "../src/db/schema";
 
 // 检查环境变量
 const DATABASE_URL = process.env.DATABASE_URL;

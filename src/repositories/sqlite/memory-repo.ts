@@ -13,7 +13,7 @@ function toMemory(r: Row): Memory {
   return {
     id: r.id,
     content: r.content,
-    category: r.category as Memory["category"],
+    category: "experience" as Memory["category"], // PostgreSQL schema 没有 category，默认值
     status: r.status as Memory["status"],
     sourceIds: r.sourceIds,
     confidence: r.confidence,
@@ -59,7 +59,7 @@ export const sqliteMemoryRepo: MemoryRepository = {
       .select()
       .from(memories)
       .where(inArray(memories.status, ["confirmed", "active"]))
-      .all();
+      ;
 
     // sourceIds 是 JSON 数组，需要遍历查找
     const match = rows.find((r: Row) => r.sourceIds.includes(sourceId));

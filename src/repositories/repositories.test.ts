@@ -695,11 +695,13 @@ describe("Goal", () => {
     const { repo, toDayKey, InvalidTransitionError } = await load();
     const g = await repo.goals.create({
       title: "完成论文",
-      why: "想给这段研究一个交代",
-      desiredIdentity: "能把一件事做完的人",
-      outcome: null,
+      description: "想给这段研究一个交代",
+      type: "能把一件事做完的人",
+      priority: 3,
       startDate: toDayKey(),
       targetDate: null,
+      completedDate: null,
+      parentGoalId: null,
     });
     expect(g.status).toBe("draft");
 

@@ -61,7 +61,7 @@ export async function createMomentWithMedia(formData: FormData) {
           await db.insert(momentMedia).values({
             momentId: moment.id,
             mediaId: media.id,
-          }).run();
+          });
         })
       );
     }

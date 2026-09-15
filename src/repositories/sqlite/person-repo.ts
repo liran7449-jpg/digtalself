@@ -8,12 +8,12 @@ import { newId } from "./helpers";
 export function createPersonRepository(): PersonRepository {
   return {
     async findById(id: string): Promise<Person | null> {
-      const row = await db.select().from(people).where(eq(people.id, id)).get();
+      const row = await db.select().from(people).where(eq(people.id, id)).then(rows => rows[0]);
       return row ?? null;
     },
 
     async findByName(name: string): Promise<Person | null> {
-      const row = await db.select().from(people).where(eq(people.name, name)).get();
+      const row = await db.select().from(people).where(eq(people.name, name)).then(rows => rows[0]);
       return row ?? null;
     },
 
@@ -29,12 +29,12 @@ export function createPersonRepository(): PersonRepository {
         updatedAt: new Date(),
       };
 
-      await db.insert(people).values(newPerson).run();
+      await db.insert(people).values(newPerson);
       return newPerson;
     },
 
     async list(): Promise<Person[]> {
-      return db.select().from(people).orderBy(people.name).all();
+      return db.select().from(people).orderBy(people.name);
     },
 
     async listByMoment(momentId: string): Promise<Person[]> {
@@ -43,7 +43,7 @@ export function createPersonRepository(): PersonRepository {
         .from(momentPeople)
         .innerJoin(people, eq(momentPeople.personId, people.id))
         .where(eq(momentPeople.momentId, momentId))
-        .all();
+        ;
 
       return rows.map((r) => r.people);
     },
@@ -56,7 +56,7 @@ export function createPersonRepository(): PersonRepository {
         .update(people)
         .set({ ...patch, updatedAt: new Date() })
         .where(eq(people.id, id))
-        .run();
+        ;
 
       const updated = await this.findById(id);
       if (!updated) throw new Error(`Person ${id} not found after update`);

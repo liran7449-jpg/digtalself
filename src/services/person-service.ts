@@ -28,10 +28,10 @@ export const PersonService = {
           eq(momentPeople.personId, person.id),
         ),
       )
-      .get();
+      .then(rows => rows[0]);
 
     if (!existing) {
-      await db.insert(momentPeople).values({ momentId, personId: person.id }).run();
+      await db.insert(momentPeople).values({ momentId, personId: person.id });
     }
 
     return person;
@@ -49,7 +49,7 @@ export const PersonService = {
           eq(momentPeople.personId, personId),
         ),
       )
-      .run();
+      ;
   },
 
   /**
@@ -61,7 +61,7 @@ export const PersonService = {
       .from(momentPeople)
       .innerJoin(people, eq(momentPeople.personId, people.id))
       .where(eq(momentPeople.momentId, momentId))
-      .all();
+      ;
 
     return rows.map((r) => r.people);
   },

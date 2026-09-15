@@ -21,10 +21,10 @@ export const TopicService = {
           eq(momentTopics.topicId, topic.id),
         ),
       )
-      .get();
+      .then(rows => rows[0]);
 
     if (!existing) {
-      await db.insert(momentTopics).values({ momentId, topicId: topic.id }).run();
+      await db.insert(momentTopics).values({ momentId, topicId: topic.id });
     }
 
     return topic;
@@ -39,7 +39,7 @@ export const TopicService = {
           eq(momentTopics.topicId, topicId),
         ),
       )
-      .run();
+      ;
   },
 
   async listByMoment(momentId: string): Promise<Topic[]> {
@@ -48,7 +48,7 @@ export const TopicService = {
       .from(momentTopics)
       .innerJoin(topics, eq(momentTopics.topicId, topics.id))
       .where(eq(momentTopics.momentId, momentId))
-      .all();
+      ;
 
     return rows.map((r) => r.topics);
   },

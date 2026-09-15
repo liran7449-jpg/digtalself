@@ -83,7 +83,7 @@ export async function uploadImage(momentId: string, formData: FormData) {
   });
 
   // 关联到 Moment
-  await db.insert(momentMedia).values({ momentId, mediaId: media.id }).run();
+  await db.insert(momentMedia).values({ momentId, mediaId: media.id });
 
   revalidatePath(`/moments/${momentId}`);
   return media;
@@ -99,7 +99,7 @@ export async function deleteImage(momentId: string, mediaId: string) {
         eq(momentMedia.mediaId, mediaId)
       )
     )
-    .run();
+    ;
 
   // 删除文件
   await MediaService.delete(mediaId);

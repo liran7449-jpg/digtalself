@@ -21,10 +21,10 @@ export const PlaceService = {
           eq(momentPlaces.placeId, place.id),
         ),
       )
-      .get();
+      .then(rows => rows[0]);
 
     if (!existing) {
-      await db.insert(momentPlaces).values({ momentId, placeId: place.id }).run();
+      await db.insert(momentPlaces).values({ momentId, placeId: place.id });
     }
 
     return place;
@@ -39,7 +39,7 @@ export const PlaceService = {
           eq(momentPlaces.placeId, placeId),
         ),
       )
-      .run();
+      ;
   },
 
   async listByMoment(momentId: string): Promise<Place[]> {
@@ -48,7 +48,7 @@ export const PlaceService = {
       .from(momentPlaces)
       .innerJoin(places, eq(momentPlaces.placeId, places.id))
       .where(eq(momentPlaces.momentId, momentId))
-      .all();
+      ;
 
     return rows.map((r) => r.places);
   },

@@ -144,13 +144,14 @@ export type QuickCaptureInput = z.input<typeof quickCaptureSchema>;
 export const goalSchema = z.object({
   id,
   title: z.string().min(1).max(200),
-  why: z.string().max(2000).nullable(),
-  desiredIdentity: z.string().max(500).nullable(),
-  outcome: z.string().max(1000).nullable(),
+  description: z.string().max(2000).nullable(),
   status: z.enum(GOAL_STATUS_VALUES),
-  progress: z.number().min(0).max(1),
+  type: z.string().default("personal"),
+  priority: z.number().int().min(1).max(5).default(3),
   startDate: dayKey.nullable(),
   targetDate: dayKey.nullable(),
+  completedDate: dayKey.nullable(),
+  parentGoalId: id.nullable(),
   createdAt: ts,
   updatedAt: ts,
 });

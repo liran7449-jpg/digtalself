@@ -8,12 +8,12 @@ import { newId } from "./helpers";
 export function createPlaceRepository(): PlaceRepository {
   return {
     async findById(id: string): Promise<Place | null> {
-      const row = await db.select().from(places).where(eq(places.id, id)).get();
+      const row = await db.select().from(places).where(eq(places.id, id)).then(rows => rows[0]);
       return row ?? null;
     },
 
     async findByName(name: string): Promise<Place | null> {
-      const row = await db.select().from(places).where(eq(places.name, name)).get();
+      const row = await db.select().from(places).where(eq(places.name, name)).then(rows => rows[0]);
       return row ?? null;
     },
 
@@ -29,12 +29,12 @@ export function createPlaceRepository(): PlaceRepository {
         updatedAt: new Date(),
       };
 
-      await db.insert(places).values(newPlace).run();
+      await db.insert(places).values(newPlace);
       return newPlace;
     },
 
     async list(): Promise<Place[]> {
-      return db.select().from(places).orderBy(places.name).all();
+      return db.select().from(places).orderBy(places.name);
     },
 
     async listByMoment(momentId: string): Promise<Place[]> {
@@ -43,7 +43,7 @@ export function createPlaceRepository(): PlaceRepository {
         .from(momentPlaces)
         .innerJoin(places, eq(momentPlaces.placeId, places.id))
         .where(eq(momentPlaces.momentId, momentId))
-        .all();
+        ;
 
       return rows.map((r) => r.places);
     },
@@ -56,7 +56,7 @@ export function createPlaceRepository(): PlaceRepository {
         .update(places)
         .set({ ...patch, updatedAt: new Date() })
         .where(eq(places.id, id))
-        .run();
+        ;
 
       const updated = await this.findById(id);
       if (!updated) throw new Error(`Place ${id} not found after update`);

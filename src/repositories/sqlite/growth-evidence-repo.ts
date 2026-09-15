@@ -12,7 +12,7 @@ export function createGrowthEvidenceRepository(): GrowthEvidenceRepository {
         .select()
         .from(growthEvidences)
         .where(eq(growthEvidences.id, id))
-        .get();
+        .then(rows => rows[0]);
       return row ?? null;
     },
 
@@ -21,7 +21,7 @@ export function createGrowthEvidenceRepository(): GrowthEvidenceRepository {
         .select()
         .from(growthEvidences)
         .orderBy(growthEvidences.markedAt)
-        .all();
+        ;
     },
 
     async create(
@@ -34,7 +34,7 @@ export function createGrowthEvidenceRepository(): GrowthEvidenceRepository {
         updatedAt: new Date(),
       };
 
-      await db.insert(growthEvidences).values(evidence).run();
+      await db.insert(growthEvidences).values(evidence);
       return evidence;
     },
   };

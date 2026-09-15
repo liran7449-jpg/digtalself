@@ -13,13 +13,14 @@ function toGoal(r: Row): Goal {
   return {
     id: r.id,
     title: r.title,
-    why: r.why,
-    desiredIdentity: r.desiredIdentity,
-    outcome: r.outcome,
+    description: r.description,
     status: r.status as Goal["status"],
-    progress: r.progress,
+    type: r.type,
+    priority: r.priority,
     startDate: r.startDate,
     targetDate: r.targetDate,
+    completedDate: r.completedDate,
+    parentGoalId: r.parentGoalId,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   };
@@ -47,7 +48,7 @@ export const sqliteGoalRepo: GoalRepository = {
   async create(input) {
     const rows = await db
       .insert(goals)
-      .values({ ...input, id: newId(), status: "draft", progress: 0 })
+      .values({ ...input, id: newId(), status: "draft" })
       .returning();
     return toGoal(rows[0]);
   },

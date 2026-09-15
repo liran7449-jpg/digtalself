@@ -8,12 +8,12 @@ import { newId } from "./helpers";
 export function createTopicRepository(): TopicRepository {
   return {
     async findById(id: string): Promise<Topic | null> {
-      const row = await db.select().from(topics).where(eq(topics.id, id)).get();
+      const row = await db.select().from(topics).where(eq(topics.id, id)).then(rows => rows[0]);
       return row ?? null;
     },
 
     async findByName(name: string): Promise<Topic | null> {
-      const row = await db.select().from(topics).where(eq(topics.name, name)).get();
+      const row = await db.select().from(topics).where(eq(topics.name, name)).then(rows => rows[0]);
       return row ?? null;
     },
 
@@ -28,12 +28,12 @@ export function createTopicRepository(): TopicRepository {
         updatedAt: new Date(),
       };
 
-      await db.insert(topics).values(newTopic).run();
+      await db.insert(topics).values(newTopic);
       return newTopic;
     },
 
     async list(): Promise<Topic[]> {
-      return db.select().from(topics).orderBy(topics.name).all();
+      return db.select().from(topics).orderBy(topics.name);
     },
 
     async listByMoment(momentId: string): Promise<Topic[]> {
@@ -42,7 +42,7 @@ export function createTopicRepository(): TopicRepository {
         .from(momentTopics)
         .innerJoin(topics, eq(momentTopics.topicId, topics.id))
         .where(eq(momentTopics.momentId, momentId))
-        .all();
+        ;
 
       return rows.map((r) => r.topics);
     },

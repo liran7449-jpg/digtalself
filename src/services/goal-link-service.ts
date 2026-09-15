@@ -23,10 +23,10 @@ export const GoalLinkService = {
           eq(momentGoals.goalId, goalId),
         ),
       )
-      .get();
+      .then(rows => rows[0]);
 
     if (!existing) {
-      await db.insert(momentGoals).values({ momentId, goalId }).run();
+      await db.insert(momentGoals).values({ momentId, goalId });
     }
   },
 
@@ -39,7 +39,7 @@ export const GoalLinkService = {
           eq(momentGoals.goalId, goalId),
         ),
       )
-      .run();
+      ;
   },
 
   async listByMoment(momentId: string): Promise<Goal[]> {
@@ -48,7 +48,7 @@ export const GoalLinkService = {
       .from(momentGoals)
       .innerJoin(goals, eq(momentGoals.goalId, goals.id))
       .where(eq(momentGoals.momentId, momentId))
-      .all();
+      ;
 
     return rows.map((r) => r.goals as Goal);
   },

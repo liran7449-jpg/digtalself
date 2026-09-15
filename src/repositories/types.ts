@@ -199,11 +199,12 @@ export interface GoalRepository {
       Pick<
         Goal,
         | "title"
-        | "why"
-        | "desiredIdentity"
-        | "outcome"
-        | "progress"
+        | "description"
+        | "type"
+        | "priority"
         | "targetDate"
+        | "completedDate"
+        | "parentGoalId"
       >
     >,
   ): Promise<Goal>;

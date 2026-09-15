@@ -120,7 +120,7 @@ describe("Media Service", () => {
       file: await pngBuffer(),
       mimeType: "image/png",
     });
-    await db.insert(momentMedia).values({ momentId: a.id, mediaId: media.id }).run();
+    await db.insert(momentMedia).values({ momentId: a.id, mediaId: media.id });
 
     expect((await repo.media.listByMoment(a.id)).map((m) => m.id)).toEqual([media.id]);
     expect(await repo.media.listByMoment(b.id)).toEqual([]);
