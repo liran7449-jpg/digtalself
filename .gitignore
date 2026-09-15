@@ -51,3 +51,7 @@ next-env.d.ts
 # AI agent 生成的说明文件
 /AGENTS.md
 /CLAUDE.md
+
+# 数据备份
+backups/
+backup-*.json
