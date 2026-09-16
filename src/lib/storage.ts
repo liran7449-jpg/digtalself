@@ -59,6 +59,14 @@ if (IS_CLOUD_STORAGE) {
       accessKeyId: S3_ACCESS_KEY_ID!,
       secretAccessKey: S3_SECRET_ACCESS_KEY!,
     },
+    /**
+     * AWS SDK ≥3.729 默认给每个请求加 x-amz-checksum-crc32 头，
+     * 但 Backblaze B2 不认这个头，会直接返回 "Unsupported header" 让上传失败。
+     * 设为 WHEN_REQUIRED 只在协议强制时才发校验和。
+     * R2 两种模式都能用，所以统一这么配。
+     */
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
   });
   const host = new URL(S3_ENDPOINT!).host;
   console.log(`📦 使用云存储 ${host} / bucket=${S3_BUCKET_NAME}`);
