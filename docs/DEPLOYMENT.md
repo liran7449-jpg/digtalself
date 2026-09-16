@@ -133,10 +133,25 @@ R2_PUBLIC_URL=https://pub-xxx.r2.dev
 AUTH_PASSWORD_HASH=$2a$10$...
 SESSION_SECRET=your-32-char-random-secret
 
+# 时区（重要！不设会导致时间显示错误）
+TZ=Asia/Shanghai
+
 # 应用
 NODE_ENV=production
 NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 ```
+
+⚠️ **两个容易踩的坑：**
+
+1. **`AUTH_PASSWORD_HASH` 的 `$` 符号**
+   - Railway/Vercel 环境变量：直接写 `$2b$10$...`（**不转义**）
+   - 本地 `.env` 文件：必须写 `\$2b\$10\$...`（**要转义**）
+   - 不转义会被当变量替换，哈希从 60 字符被截断成 30 字符，登录永远失败
+
+2. **`TZ` 必须设置**
+   - 云平台默认 UTC，比北京时间慢 8 小时
+   - 症状：早上 11 点显示 "Good afternoon"、日期不切换到今天
+   - 数据库存的时间戳是对的，只是渲染时用了错误的时钟
 
 #### 3.3 部署
 
