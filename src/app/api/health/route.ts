@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/db/client";
+import { isCloudStorage } from "@/lib/storage";
 
 export async function GET() {
   try {
@@ -17,7 +18,11 @@ export async function GET() {
       status: "healthy",
       timestamp: now.toISOString(),
       database: dbCheck,
-      storage: process.env.R2_ACCOUNT_ID ? "r2" : "local",
+      /**
+       * "local" 在生产环境是危险信号：容器磁盘每次部署都清空，图片会全丢。
+       * 部署后应确认这里是 cloud。
+       */
+      storage: isCloudStorage ? "cloud" : "local",
       auth: !!process.env.AUTH_PASSWORD_HASH,
       environment: process.env.NODE_ENV || "development",
       /**
