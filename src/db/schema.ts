@@ -6,6 +6,7 @@
 
 import { sql } from "drizzle-orm";
 import {
+  foreignKey,
   index,
   integer,
   pgTable,
@@ -26,9 +27,23 @@ const updatedAt = timestamp("updated_at", { mode: "date", withTimezone: true })
   .default(sql`now()`)
   .$onUpdate(() => sql`now()`);
 
-/** MVP 是单用户产品，这张表只会有一行，id 固定为 'me'。 */
+/**
+ * 用户表。多用户支持：每个人一行，密码存这里而不是环境变量，
+ * 这样用户能自己改密码，不需要重新部署。
+ *
+ * 首位用户 id 固定为 'me'（历史数据归属），后续用户用 ULID。
+ */
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
+  /** 登录用的显示名，也是登录标识（未来可扩展为邮箱） */
+  displayName: text("display_name").notNull().default(""),
+  /** bcrypt 哈希。绝不存明文。 */
+  passwordHash: text("password_hash"),
+  /**
+   * 首次登录强制改密码。
+   * 管理员建号时给临时密码，用户首次登录后必须改掉。
+   */
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
   name: text("name"),
   avatarUrl: text("avatar_url"),
   bio: text("bio"),
@@ -38,43 +53,65 @@ export const users = pgTable("users", {
   updatedAt,
 });
 
-export const days = pgTable("days", {
-  date: text("date").primaryKey(),
-  status: text("status").notNull().default("not_started"),
-  mood: text("mood"),
-  focus: text("focus"),
-  theme: text("theme"),
-  eveningMood: text("evening_mood"),
-  stayedWithYou: text("stayed_with_you"),
-  learned: text("learned"),
-  reflectedAt: timestamp("reflected_at", { mode: "date", withTimezone: true }),
-  carryDismissed: boolean("carry_dismissed").notNull().default(false),
-  createdAt,
-  updatedAt,
-});
+/**
+ * Day 表。主键从单 date 改为 (userId, date) 复合主键 ——
+ * 两个用户可以有同一天的记录，各自独立。
+ */
+export const days = pgTable(
+  "days",
+  {
+    userId: text("user_id")
+      .notNull()
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: text("date").notNull(),
+    status: text("status").notNull().default("not_started"),
+    mood: text("mood"),
+    focus: text("focus"),
+    theme: text("theme"),
+    eveningMood: text("evening_mood"),
+    stayedWithYou: text("stayed_with_you"),
+    learned: text("learned"),
+    reflectedAt: timestamp("reflected_at", { mode: "date", withTimezone: true }),
+    carryDismissed: boolean("carry_dismissed").notNull().default(false),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.date] })],
+);
 
-export const goals = pgTable("goals", {
-  id: text("id").primaryKey(),
-  title: text("title").notNull(),
-  description: text("description"),
-  status: text("status").notNull().default("active"),
-  type: text("type").notNull().default("personal"),
-  priority: integer("priority").notNull().default(3),
-  startDate: text("start_date"),
-  targetDate: text("target_date"),
-  completedDate: text("completed_date"),
-  parentGoalId: text("parent_goal_id"),
-  createdAt,
-  updatedAt,
-});
+export const goals = pgTable(
+  "goals",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: text("status").notNull().default("active"),
+    type: text("type").notNull().default("personal"),
+    priority: integer("priority").notNull().default(3),
+    startDate: text("start_date"),
+    targetDate: text("target_date"),
+    completedDate: text("completed_date"),
+    parentGoalId: text("parent_goal_id"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("goals_user_status_idx").on(t.userId, t.status)],
+);
 
 export const planItems = pgTable(
   "plan_items",
   {
     id: text("id").primaryKey(),
-    date: text("date")
+    userId: text("user_id")
       .notNull()
-      .references(() => days.date, { onDelete: "cascade" }),
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: text("date").notNull(),
     title: text("title").notNull(),
     kind: text("kind").notNull().default("work"),
     status: text("status").notNull().default("planned"),
@@ -91,13 +128,25 @@ export const planItems = pgTable(
     createdAt,
     updatedAt,
   },
-  (t) => [index("plan_items_date_idx").on(t.date, t.sortOrder)],
+  (t) => [
+    index("plan_items_user_date_idx").on(t.userId, t.date, t.sortOrder),
+    // 复合外键：days 主键是 (userId, date)
+    foreignKey({
+      columns: [t.userId, t.date],
+      foreignColumns: [days.userId, days.date],
+      name: "plan_items_user_date_fk",
+    }).onDelete("cascade"),
+  ],
 );
 
 export const moments = pgTable(
   "moments",
   {
     id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
     date: text("date").notNull(),
     status: text("status").notNull().default("saved"),
     content: text("content").notNull().default(""),
@@ -118,8 +167,9 @@ export const moments = pgTable(
     updatedAt,
   },
   (t) => [
-    index("moments_date_idx").on(t.date),
-    index("moments_occurred_at_idx").on(t.occurredAt),
+    // 索引都带 userId 前缀：查询总是先按用户过滤
+    index("moments_user_date_idx").on(t.userId, t.date),
+    index("moments_user_occurred_idx").on(t.userId, t.occurredAt),
   ],
 );
 
@@ -157,41 +207,72 @@ export const insights = pgTable(
   (t) => [index("insights_range_idx").on(t.type, t.rangeEnd)],
 );
 
-export const people = pgTable("people", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  notes: text("notes"),
-  createdAt,
-  updatedAt,
-});
+export const people = pgTable(
+  "people",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    notes: text("notes"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("people_user_name_idx").on(t.userId, t.name)],
+);
 
-export const places = pgTable("places", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  notes: text("notes"),
-  createdAt,
-  updatedAt,
-});
+export const places = pgTable(
+  "places",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    notes: text("notes"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("places_user_name_idx").on(t.userId, t.name)],
+);
 
-export const topics = pgTable("topics", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  createdAt,
-  updatedAt,
-});
+export const topics = pgTable(
+  "topics",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("topics_user_name_idx").on(t.userId, t.name)],
+);
 
-export const media = pgTable("media", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull().default("me"),
-  storageKey: text("storage_key").notNull(),
-  type: text("type").notNull(),
-  size: integer("size").notNull(),
-  width: integer("width"),
-  height: integer("height"),
-  thumbnailKey: text("thumbnail_key"),
-  createdAt,
-  updatedAt,
-});
+export const media = pgTable(
+  "media",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull(),
+    type: text("type").notNull(),
+    size: integer("size").notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    thumbnailKey: text("thumbnail_key"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("media_user_idx").on(t.userId)],
+);
 
 export const growthEvidences = pgTable("growth_evidences", {
   id: text("id").primaryKey(),
