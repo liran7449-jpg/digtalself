@@ -12,13 +12,23 @@ export async function GET() {
     // 检查数据库连接
     const dbCheck = await checkDatabase();
 
+    const now = new Date();
     const response = {
       status: "healthy",
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
       database: dbCheck,
       storage: process.env.R2_ACCOUNT_ID ? "r2" : "local",
       auth: !!process.env.AUTH_PASSWORD_HASH,
       environment: process.env.NODE_ENV || "development",
+      /**
+       * 时区诊断。TZ 没设时云平台默认 UTC，会导致问候语和日期切换错误。
+       * localTime 是服务端实际用来算时间的时钟。
+       */
+      timezone: {
+        tz: process.env.TZ || "(未设置，默认 UTC)",
+        localTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+        offsetHours: -now.getTimezoneOffset() / 60,
+      },
     };
 
     return NextResponse.json(response, { status: 200 });
