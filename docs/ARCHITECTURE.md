@@ -268,7 +268,7 @@ npm run auth:hash-password mypassword
 
 # 4. 创建 .env.local
 echo "AUTH_PASSWORD_HASH=哈希值" > .env.local
-echo "SESSION_SECRET=test-secret-at-least-32-characters-long" >> .env.local
+echo "SESSION_SECRET=<已脱敏：真实凭据不入库>" >> .env.local
 
 # 5. 重启服务器
 npm run dev

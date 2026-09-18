@@ -44,14 +44,14 @@ npm install
 
 ```bash
 # 生成密码哈希
-npm run auth:hash-password testpassword123
-# 输出：$2b$10$KMmoMWsyug98EI8N6fGx2OO/ZEUMZGT6MnpGb2ePrQr53uqOFE4mi
+npm run auth:hash-password <已脱敏：真实凭据不入库>
+# 输出：<已脱敏：真实凭据不入库>
 
 # 创建 .env.local
 cat > .env.local << 'EOF'
 # 认证配置
-AUTH_PASSWORD_HASH=\$2b\$10\$KMmoMWsyug98EI8N6fGx2OO/ZEUMZGT6MnpGb2ePrQr53uqOFE4mi
-SESSION_SECRET=test-secret-key-at-least-32-characters-long-for-testing
+AUTH_PASSWORD_HASH=<已脱敏：真实凭据不入库>
+SESSION_SECRET=<已脱敏：真实凭据不入库>
 
 # 数据库（默认 SQLite）
 DIGITAL_SELF_DB=./data/digital-self.db
@@ -116,7 +116,7 @@ curl http://localhost:3000/api/health | python3 -m json.tool
 # 测试登录
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"password":"testpassword123"}' \
+  -d '{"password":"<已脱敏：真实凭据不入库>"}' \
   -c /tmp/cookies.txt
 ```
 
