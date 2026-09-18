@@ -35,7 +35,11 @@ export default async function TodayPage() {
    * 分支的话，「第一次登录」这个最该被祝福的时刻恰好看不到。
    */
   const birthdayGreeting = isBirthdayToday(me?.birthday, now) ? (
-    <BirthdayGreeting name={me?.name ?? null} dayKey={date} />
+    <BirthdayGreeting
+      name={me?.name ?? null}
+      dayKey={date}
+      note={me?.birthdayNote ?? null}
+    />
   ) : null;
 
   // IA 第 8.1 节：今天还没初始化就先走 Morning Setup

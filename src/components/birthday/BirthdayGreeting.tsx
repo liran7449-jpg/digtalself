@@ -39,9 +39,12 @@ export function BirthdayGreeting({
   name,
   /** 用来选祝福语，保证同一天稳定。 */
   dayKey,
+  /** 管理员写的一句话。有就替代默认祝福语 —— 一句真话胜过三句模板。 */
+  note,
 }: {
   name: string | null;
   dayKey: string;
+  note?: string | null;
 }) {
   /**
    * 挂载后才放动效。
@@ -54,9 +57,12 @@ export function BirthdayGreeting({
     setShown(true);
   }, []);
 
-  // 按日期取一句，不随机：同一天多次打开看到同一句
-  const line = LINES[Number(dayKey.replaceAll("-", "")) % LINES.length];
-  const greeting = name ? `${name}，生日快乐。` : "生日快乐。";
+  /**
+   * 有留言就用留言，没有才回落到备选句。
+   * 一句具体的话比三句通用模板有分量得多。
+   */
+  const line = note?.trim() || LINES[Number(dayKey.replaceAll("-", "")) % LINES.length];
+  const greeting = name ? `${name}，生日快乐` : "生日快乐";
 
   return (
     <section
@@ -82,7 +88,17 @@ export function BirthdayGreeting({
       </div>
 
       <div className="relative">
-        <p className="font-display text-title text-ink">{greeting}</p>
+        <p className="font-display text-title text-ink">
+          {greeting}
+          {/*
+            蛋糕单独一个 span：emoji 在 Playfair 里会回落到系统 emoji 字体，
+            跟着标题的 letter-spacing 走会显得和文字挤在一起。
+            inline-block + 左边距让它自己占一格。
+          */}
+          <span aria-hidden className="ml-1.5 inline-block align-baseline">
+            🎂
+          </span>
+        </p>
         <p className="mt-2 text-body text-ink-soft">{line}</p>
       </div>
     </section>

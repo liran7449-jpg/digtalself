@@ -27,6 +27,7 @@ function toUser(r: Row): User {
     mustChangePassword: r.mustChangePassword,
     name: r.name,
     birthday: r.birthday,
+    birthdayNote: r.birthdayNote,
     avatarUrl: r.avatarUrl,
     bio: r.bio,
     occupation: r.occupation,

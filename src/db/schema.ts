@@ -60,6 +60,14 @@ export const users = pgTable("users", {
    * 不收集用不到的东西。
    */
   birthday: text("birthday"),
+  /**
+   * 生日当天彩蛋里多显示的一句话，由管理员写入。
+   *
+   * 存在**收信人自己这一行**上，不是去查写信人的数据 ——
+   * 后者会需要一个跨用户查询，破掉刚建立的隔离边界。
+   * 这样彩蛋渲染时只读当前用户自己的行，规则不用开例外。
+   */
+  birthdayNote: text("birthday_note"),
   avatarUrl: text("avatar_url"),
   bio: text("bio"),
   occupation: text("occupation"),

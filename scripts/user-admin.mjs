@@ -9,6 +9,7 @@
  *   node scripts/user-admin.mjs list
  *   node scripts/user-admin.mjs create <用户名> [显示名] [生日 MM-DD] [初始密码] [--keep-password]
  *   node scripts/user-admin.mjs set-birthday <用户名> <生日 MM-DD>
+ *   node scripts/user-admin.mjs set-note <用户名> '<生日彩蛋里的一句话>'  
  *   node scripts/user-admin.mjs set-password <用户名>
  *   node scripts/user-admin.mjs set-password-plain <用户名> <密码>
  *
@@ -144,6 +145,24 @@ async function create(rawUsername, name, rawBirthday, rawPassword) {
   }
 }
 
+/** 设置生日彩蛋里那句话。传空字符串则清掉。 */
+async function setNote(rawUsername, note) {
+  const username = normalizeUsername(rawUsername);
+  const value = (note ?? "").trim() || null;
+  if (value && value.length > 280) {
+    console.error("❌ 留言最多 280 字");
+    process.exit(1);
+  }
+  const rows = await sql`
+    UPDATE users SET birthday_note = ${value} WHERE username = ${username} RETURNING id
+  `;
+  if (rows.length === 0) {
+    console.error(`❌ 用户不存在：${username}`);
+    process.exit(1);
+  }
+  console.log(value ? `\n✅ 已设置 ${username} 的生日留言：\n   「${value}」\n` : `\n✅ 已清除 ${username} 的生日留言\n`);
+}
+
 /** 单独设置生日，给已存在的账号用。 */
 async function setBirthday(rawUsername, rawBirthday) {
   const username = normalizeUsername(rawUsername);
@@ -221,6 +240,9 @@ try {
     case "set-birthday":
       await setBirthday(args[0], args[1]);
       break;
+    case "set-note":
+      await setNote(args[0], args[1]);
+      break;
     case "set-password":
       await setPassword(args[0]);
       break;
@@ -232,6 +254,7 @@ try {
       console.log("  node scripts/user-admin.mjs list");
       console.log("  node scripts/user-admin.mjs create <用户名> [显示名] [生日 MM-DD] [初始密码] [--keep-password]");
       console.log("  node scripts/user-admin.mjs set-birthday <用户名> <生日 MM-DD>");
+      console.log("  node scripts/user-admin.mjs set-note <用户名> '<生日彩蛋里的一句话>'");
       console.log("  node scripts/user-admin.mjs set-password <用户名>");
       console.log("  node scripts/user-admin.mjs set-password-plain <用户名> <密码>");
       process.exitCode = 1;

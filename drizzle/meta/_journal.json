@@ -22,6 +22,13 @@
       "when": 1789720998953,
       "tag": "0002_user_birthday",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789725681225,
+      "tag": "0003_birthday_note",
+      "breakpoints": true
     }
   ]
 }

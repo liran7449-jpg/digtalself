@@ -48,6 +48,8 @@ export const userSchema = z.object({
     .string()
     .regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, "生日格式必须是 MM-DD")
     .nullable(),
+  /** 生日彩蛋里多显示的一句话，管理员写入。 */
+  birthdayNote: z.string().max(280).nullable(),
   avatarUrl: z.string().url().nullable(),
   bio: z.string().max(2000).nullable(),
   occupation: z.string().max(120).nullable(),
