@@ -23,11 +23,17 @@ const SESSION_OPTIONS = {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 白名单：不需要认证的路径
+  /**
+   * 白名单：不需要认证的路径。
+   *
+   * 加进来之前先想清楚未登录的人能从这个端点看到什么。
+   * 曾经有个 /api/debug-env 在这里，无条件返回完整的
+   * AUTH_PASSWORD_HASH，等于把密码哈希挂在公网上给人离线爆破。
+   * /api/health 只返回布尔值和时区，真正会写存储的自检要求已登录。
+   */
   const publicPaths = [
     "/login",
     "/api/auth/login",
-    "/api/debug-env",
     "/api/health",
     "/_next",
     "/favicon.ico",
