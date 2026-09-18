@@ -3,9 +3,12 @@
  *
  * 跨模块调用媒体功能时走这个 Service，不直接调 MediaRepository。
  * 符合规范第 2 条：模块通过接口交流。
+ *
+ * userId 是每个方法的第一个参数，归属由它决定 ——
+ * repo 实例按它绑定，文件也写到 {userId}/ 目录下。
  */
 
-import { repo } from "@/repositories";
+import { repoFor } from "@/repositories";
 import type { Media } from "@/domain/models";
 import sharp from "sharp";
 
@@ -21,8 +24,7 @@ export const MediaService = {
     // 提取图片尺寸
     const metadata = await sharp(input.file).metadata();
 
-    return repo.media.create({
-      userId: input.userId,
+    return repoFor(input.userId).media.create({
       file: input.file,
       type: input.mimeType,
       size: input.file.length,
@@ -39,8 +41,7 @@ export const MediaService = {
     file: Buffer;
     mimeType: string;
   }): Promise<Media> {
-    return repo.media.create({
-      userId: input.userId,
+    return repoFor(input.userId).media.create({
       file: input.file,
       type: input.mimeType,
       size: input.file.length,
@@ -49,9 +50,10 @@ export const MediaService = {
 
   /**
    * 删除媒体（文件 + 数据库记录）。
+   * 不属于该用户时 repo 会抛 NotFoundError。
    */
-  async delete(id: string): Promise<void> {
-    await repo.media.delete(id);
+  async delete(userId: string, id: string): Promise<void> {
+    await repoFor(userId).media.delete(id);
   },
 
   /**

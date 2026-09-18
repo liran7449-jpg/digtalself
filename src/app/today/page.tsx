@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/layout/AppShell";
-import { repo } from "@/repositories";
+import { getRepo } from "@/repositories";
 import { formatDayLong, greeting, toDayKey } from "@/domain/day-key";
 import { MorningSetup } from "./MorningSetup";
 import { MyState } from "./MyState";
@@ -13,6 +13,8 @@ import { EndMyDay } from "./EndMyDay";
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
+  // 绑定到当前登录用户的 repo。未登录会抛错（middleware 已经先拦了）
+  const repo = await getRepo();
   const date = toDayKey();
   const now = new Date();
   const day = await repo.days.ensure(date);

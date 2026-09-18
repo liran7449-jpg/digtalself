@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { repo } from "@/repositories";
+import { userRepo } from "@/repositories";
 import { login } from "@/lib/session";
 
 /**
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请输入用户名和密码" }, { status: 400 });
     }
 
-    const creds = await repo.users.findCredentialsByUsername(username);
+    const creds = await userRepo.findCredentialsByUsername(username);
 
     // 不存在也走一遍哈希比对，保持耗时一致（见 DUMMY_HASH 注释）
     const hash = creds?.passwordHash ?? DUMMY_HASH;

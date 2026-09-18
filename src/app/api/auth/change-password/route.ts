@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { repo } from "@/repositories";
+import { userRepo } from "@/repositories";
 import { clearMustChangePassword, getCurrentUserId } from "@/lib/session";
 
 /** 最短密码长度。太短的密码让 bcrypt 也救不回来。 */
@@ -40,11 +40,11 @@ export async function POST(request: NextRequest) {
 
     // 用 session 里的 userId 反查用户名，再取凭据 —— 不接受前端传用户名，
     // 否则就能拿自己的 session 去改别人的密码
-    const user = await repo.users.findById(userId);
+    const user = await userRepo.findById(userId);
     if (!user) {
       return NextResponse.json({ error: "用户不存在" }, { status: 404 });
     }
-    const creds = await repo.users.findCredentialsByUsername(user.username);
+    const creds = await userRepo.findCredentialsByUsername(user.username);
     if (!creds?.passwordHash) {
       return NextResponse.json({ error: "账号尚未设置密码" }, { status: 400 });
     }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "当前密码错误" }, { status: 401 });
     }
 
-    await repo.users.setPassword(userId, newPassword);
+    await userRepo.setPassword(userId, newPassword);
 
     // session 里的 mustChangePassword 也要清，否则 middleware 继续弹回改密页
     await clearMustChangePassword();

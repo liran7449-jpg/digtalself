@@ -6,7 +6,8 @@
 
 import { revalidatePath } from "next/cache";
 import { toDayKey } from "@/domain/day-key";
-import { repo } from "@/repositories";
+import { repoFor } from "@/repositories";
+import { requireUserId } from "@/lib/session";
 import { MediaService } from "@/services/media-service";
 import { PersonService } from "@/services/person-service";
 import { PlaceService } from "@/services/place-service";
@@ -15,6 +16,8 @@ import { db } from "@/db/client";
 import { momentMedia } from "@/db/schema";
 
 export async function createMomentWithMedia(formData: FormData) {
+  const userId = await requireUserId();
+  const repo = repoFor(userId);
   const content = formData.get("content") as string;
   const peopleJson = formData.get("people") as string;
   const placesJson = formData.get("places") as string;
@@ -52,7 +55,8 @@ export async function createMomentWithMedia(formData: FormData) {
         imageFiles.map(async (file) => {
           const buffer = Buffer.from(await file.arrayBuffer());
           const media = await MediaService.uploadImage({
-            userId: "me",
+            // 来自 session，不是硬编码的 'me'
+            userId,
             file: buffer,
             mimeType: file.type,
           });
@@ -68,17 +72,17 @@ export async function createMomentWithMedia(formData: FormData) {
 
     // 3. 关联人物
     for (const personName of people) {
-      await PersonService.linkToMoment(moment.id, personName);
+      await PersonService.linkToMoment(userId, moment.id, personName);
     }
 
     // 4. 关联地点
     for (const placeName of places) {
-      await PlaceService.linkToMoment(moment.id, placeName);
+      await PlaceService.linkToMoment(userId, moment.id, placeName);
     }
 
     // 5. 关联话题
     for (const topicName of topics) {
-      await TopicService.linkToMoment(moment.id, topicName);
+      await TopicService.linkToMoment(userId, moment.id, topicName);
     }
 
     revalidatePath("/today");

@@ -1,19 +1,31 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { topics, momentTopics } from "@/db/schema";
 import type { Topic } from "@/domain/models";
 import type { TopicRepository } from "../types";
 import { newId } from "./helpers";
 
-export function createTopicRepository(): TopicRepository {
+/**
+ * userId 在工厂里绑定一次，每个方法内部自己带上过滤。
+ * findByName 必须按 (userId, name) 查 —— 两个用户都有「工作」时不能串。
+ */
+export function createTopicRepository(userId: string): TopicRepository {
   return {
     async findById(id: string): Promise<Topic | null> {
-      const row = await db.select().from(topics).where(eq(topics.id, id)).then(rows => rows[0]);
+      const row = await db
+        .select()
+        .from(topics)
+        .where(and(eq(topics.id, id), eq(topics.userId, userId)))
+        .then((rows) => rows[0]);
       return row ?? null;
     },
 
     async findByName(name: string): Promise<Topic | null> {
-      const row = await db.select().from(topics).where(eq(topics.name, name)).then(rows => rows[0]);
+      const row = await db
+        .select()
+        .from(topics)
+        .where(and(eq(topics.name, name), eq(topics.userId, userId)))
+        .then((rows) => rows[0]);
       return row ?? null;
     },
 
@@ -28,12 +40,12 @@ export function createTopicRepository(): TopicRepository {
         updatedAt: new Date(),
       };
 
-      await db.insert(topics).values(newTopic);
+      await db.insert(topics).values({ ...newTopic, userId });
       return newTopic;
     },
 
     async list(): Promise<Topic[]> {
-      return db.select().from(topics).orderBy(topics.name);
+      return db.select().from(topics).where(eq(topics.userId, userId)).orderBy(topics.name);
     },
 
     async listByMoment(momentId: string): Promise<Topic[]> {
@@ -41,8 +53,7 @@ export function createTopicRepository(): TopicRepository {
         .select({ topics })
         .from(momentTopics)
         .innerJoin(topics, eq(momentTopics.topicId, topics.id))
-        .where(eq(momentTopics.momentId, momentId))
-        ;
+        .where(and(eq(momentTopics.momentId, momentId), eq(topics.userId, userId)));
 
       return rows.map((r) => r.topics);
     },
@@ -65,7 +76,7 @@ export function createTopicRepository(): TopicRepository {
         .select({ momentId: momentTopics.momentId, topics })
         .from(momentTopics)
         .innerJoin(topics, eq(momentTopics.topicId, topics.id))
-        .where(inArray(momentTopics.momentId, momentIds))
+        .where(and(inArray(momentTopics.momentId, momentIds), eq(topics.userId, userId)))
         .orderBy(topics.name);
 
       for (const r of rows) {

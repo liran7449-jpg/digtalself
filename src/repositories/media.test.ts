@@ -11,7 +11,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
-import { useTempDb, dropTempDb } from "./test-setup";
+import { useTempDb, dropTempDb, TEST_USER_ID } from "./test-setup";
 
 let tempDir: string;
 
@@ -25,7 +25,8 @@ afterAll(() => {
 
 const load = async () => {
   const { MediaService } = await import("@/services/media-service");
-  const { repo } = await import("@/repositories");
+  const { repoFor } = await import("@/repositories");
+  const repo = repoFor(TEST_USER_ID);
   return { MediaService, repo };
 };
 
@@ -99,7 +100,7 @@ describe("Media Service", () => {
     const thumbPath = join(root, media.thumbnailKey!);
     expect(existsSync(filePath)).toBe(true);
 
-    await MediaService.delete(media.id);
+    await MediaService.delete(TEST_USER_ID, media.id);
 
     expect(await repo.media.findById(media.id)).toBeNull();
     expect(existsSync(filePath)).toBe(false);

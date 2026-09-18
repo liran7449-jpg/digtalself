@@ -3,7 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Label } from "@/components/ui/Primitives";
 import { MomentCard } from "@/components/moment/MomentCard";
 import { MonthCalendar } from "@/components/calendar/MonthCalendar";
-import { repo } from "@/repositories";
+import { getRepo } from "@/repositories";
 import {
   formatDayHeading,
   isMonthKey,
@@ -38,6 +38,7 @@ export default async function MomentsPage({
 }: {
   searchParams: Promise<{ show?: string; cal?: string }>;
 }) {
+  const repo = await getRepo();
   const { show, cal } = await searchParams;
   const limit = Math.min(Math.max(Number(show) || PAGE_SIZE, PAGE_SIZE), 1000);
   const today = toDayKey();

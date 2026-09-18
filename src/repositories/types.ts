@@ -321,16 +321,20 @@ export interface MediaRepository {
    * 列表页用这个 —— 逐条调 listByMoment 是 N+1。
    */
   listByMoments(momentIds: string[]): Promise<Map<string, Media[]>>;
-  /** 上传并存储。返回 Media 记录（含 id 和 storageKey） */
+  /**
+   * 上传并存储。返回 Media 记录（含 id 和 storageKey）。
+   *
+   * 没有 userId 入参是有意的：归属由 repo 实例绑定的用户决定。
+   * 让调用方传 userId 就等于让它可以把文件写到别人名下。
+   */
   create(input: {
-    userId: string;
     file: Buffer;
     type: string;
     size: number;
     width?: number;
     height?: number;
   }): Promise<Media>;
-  /** 删除文件和记录 */
+  /** 删除文件和记录。不属于当前用户时抛错。 */
   delete(id: string): Promise<void>;
 }
 
@@ -343,11 +347,12 @@ export interface GrowthEvidenceRepository {
 /**
  * 全量导出。PRD 第 31 节把「用户能看到全部数据」列为 P0。
  *
- * ⚠️ userId 必传：导出是最容易泄露的一条路径 —— 一个漏掉过滤的
- * exportAll 会把所有人的日记打包成一个 JSON 交出去。
+ * ⚠️ 归属由 repo 实例绑定的 userId 决定，方法不收 userId 参数 ——
+ * 导出是最容易泄露的一条路径，一个漏掉过滤的 exportAll 会把所有人的
+ * 日记打包成一个 JSON 交出去。不给调用方指定用户的机会。
  */
 export interface ExportRepository {
-  exportAll(userId: string): Promise<{
+  exportAll(): Promise<{
     exportedAt: string;
     schemaVersion: number;
     user: User;

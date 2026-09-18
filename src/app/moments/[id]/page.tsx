@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { Label } from "@/components/ui/Primitives";
 import { MomentTime } from "@/components/moment/MomentTime";
-import { repo } from "@/repositories";
+import { repoFor } from "@/repositories";
+import { requireUserId } from "@/lib/session";
 import { formatDayHeading, toDayKey } from "@/domain/day-key";
 import { MOMENT_TYPE_LABELS } from "@/domain/labels";
 import { MomentEditor } from "./MomentEditor";
@@ -20,19 +21,26 @@ export default async function MomentDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const userId = await requireUserId();
+  const repo = repoFor(userId);
   const { id } = await params;
+
+  /**
+   * find 带 userId 过滤，所以别人的 moment 在这里就是「不存在」→ 404。
+   * 这正是想要的：不该让人通过「404 还是 403」推断出某条记录是否存在。
+   */
   const moment = await repo.moments.find(id);
   if (!moment) notFound();
 
   // 加载关联数据
   const [linkedPeople, linkedPlaces, linkedTopics, linkedGoals, allGoals, isMemory, linkedMedia] =
     await Promise.all([
-      PersonService.listByMoment(id),
-      PlaceService.listByMoment(id),
-      TopicService.listByMoment(id),
-      GoalLinkService.listByMoment(id),
+      PersonService.listByMoment(userId, id),
+      PlaceService.listByMoment(userId, id),
+      TopicService.listByMoment(userId, id),
+      GoalLinkService.listByMoment(userId, id),
       repo.goals.listActive(),
-      MemoryService.isMomentMarkedAsMemory(id),
+      MemoryService.isMomentMarkedAsMemory(userId, id),
       repo.media.listByMoment(id),
     ]);
 

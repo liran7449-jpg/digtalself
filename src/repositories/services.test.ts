@@ -8,8 +8,12 @@ import { PlaceService } from "@/services/place-service";
 import { TopicService } from "@/services/topic-service";
 import { GoalLinkService } from "@/services/goal-link-service";
 import { MemoryService } from "@/services/memory-service";
-import { repo } from "@/repositories";
-import { useTempDb, dropTempDb } from "./test-setup";
+import { repoFor } from "@/repositories";
+import { useTempDb, dropTempDb, TEST_USER_ID } from "./test-setup";
+
+/** 所有 Service 调用都以这个用户身份发起。 */
+const U = TEST_USER_ID;
+const repo = repoFor(U);
 
 describe("Service 层", () => {
   let tempDir: string;
@@ -25,10 +29,10 @@ describe("Service 层", () => {
   it("PersonService: linkToMoment 自动创建 Person 并关联", async () => {
     const moment = await repo.moments.capture({ content: "见了老王", type: "thought" });
 
-    const person = await PersonService.linkToMoment(moment.id, "老王");
+    const person = await PersonService.linkToMoment(U, moment.id, "老王");
     expect(person.name).toBe("老王");
 
-    const linked = await PersonService.listByMoment(moment.id);
+    const linked = await PersonService.listByMoment(U, moment.id);
     expect(linked).toHaveLength(1);
     expect(linked[0].name).toBe("老王");
   });
@@ -36,30 +40,30 @@ describe("Service 层", () => {
   it("PersonService: 重复 link 不会报错", async () => {
     const moment = await repo.moments.capture({ content: "又见老王", type: "thought" });
 
-    await PersonService.linkToMoment(moment.id, "老王");
-    await PersonService.linkToMoment(moment.id, "老王"); // 第二次
+    await PersonService.linkToMoment(U, moment.id, "老王");
+    await PersonService.linkToMoment(U, moment.id, "老王"); // 第二次
 
-    const linked = await PersonService.listByMoment(moment.id);
+    const linked = await PersonService.listByMoment(U, moment.id);
     expect(linked).toHaveLength(1); // 不重复
   });
 
   it("PlaceService: linkToMoment 自动创建 Place", async () => {
     const moment = await repo.moments.capture({ content: "在咖啡馆", type: "thought" });
 
-    const place = await PlaceService.linkToMoment(moment.id, "三里屯咖啡馆");
+    const place = await PlaceService.linkToMoment(U, moment.id, "三里屯咖啡馆");
     expect(place.name).toBe("三里屯咖啡馆");
 
-    const linked = await PlaceService.listByMoment(moment.id);
+    const linked = await PlaceService.listByMoment(U, moment.id);
     expect(linked).toHaveLength(1);
   });
 
   it("TopicService: linkToMoment 自动创建 Topic", async () => {
     const moment = await repo.moments.capture({ content: "学了 TypeScript", type: "thought" });
 
-    const topic = await TopicService.linkToMoment(moment.id, "编程");
+    const topic = await TopicService.linkToMoment(U, moment.id, "编程");
     expect(topic.name).toBe("编程");
 
-    const linked = await TopicService.listByMoment(moment.id);
+    const linked = await TopicService.listByMoment(U, moment.id);
     expect(linked).toHaveLength(1);
   });
 
@@ -77,9 +81,9 @@ describe("Service 层", () => {
 
     const moment = await repo.moments.capture({ content: "看了 Next.js 文档", type: "thought" });
 
-    await GoalLinkService.linkToMoment(moment.id, goal.id);
+    await GoalLinkService.linkToMoment(U, moment.id, goal.id);
 
-    const linked = await GoalLinkService.listByMoment(moment.id);
+    const linked = await GoalLinkService.listByMoment(U, moment.id);
     expect(linked).toHaveLength(1);
     expect(linked[0].title).toBe("学会 Next.js");
   });
@@ -90,12 +94,12 @@ describe("Service 层", () => {
       type: "thought",
     });
 
-    const memory = await MemoryService.markMomentAsMemory(moment);
+    const memory = await MemoryService.markMomentAsMemory(U, moment);
     expect(memory.content).toBe(moment.content);
     expect(memory.userConfirmed).toBe(true);
     expect(memory.confidence).toBe(1.0);
 
-    const isMarked = await MemoryService.isMomentMarkedAsMemory(moment.id);
+    const isMarked = await MemoryService.isMomentMarkedAsMemory(U, moment.id);
     expect(isMarked).toBe(true);
   });
 
@@ -105,10 +109,10 @@ describe("Service 层", () => {
       type: "thought",
     });
 
-    await MemoryService.markMomentAsMemory(moment);
-    await MemoryService.unmarkMomentAsMemory(moment.id);
+    await MemoryService.markMomentAsMemory(U, moment);
+    await MemoryService.unmarkMomentAsMemory(U, moment.id);
 
-    const isMarked = await MemoryService.isMomentMarkedAsMemory(moment.id);
+    const isMarked = await MemoryService.isMomentMarkedAsMemory(U, moment.id);
     expect(isMarked).toBe(false);
   });
 });

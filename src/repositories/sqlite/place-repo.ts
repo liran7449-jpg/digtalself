@@ -1,19 +1,31 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { places, momentPlaces } from "@/db/schema";
 import type { Place } from "@/domain/models";
 import type { PlaceRepository } from "../types";
 import { newId } from "./helpers";
 
-export function createPlaceRepository(): PlaceRepository {
+/**
+ * userId 在工厂里绑定一次，每个方法内部自己带上过滤。
+ * findByName 必须按 (userId, name) 查 —— 两个用户都有「家」时不能串。
+ */
+export function createPlaceRepository(userId: string): PlaceRepository {
   return {
     async findById(id: string): Promise<Place | null> {
-      const row = await db.select().from(places).where(eq(places.id, id)).then(rows => rows[0]);
+      const row = await db
+        .select()
+        .from(places)
+        .where(and(eq(places.id, id), eq(places.userId, userId)))
+        .then((rows) => rows[0]);
       return row ?? null;
     },
 
     async findByName(name: string): Promise<Place | null> {
-      const row = await db.select().from(places).where(eq(places.name, name)).then(rows => rows[0]);
+      const row = await db
+        .select()
+        .from(places)
+        .where(and(eq(places.name, name), eq(places.userId, userId)))
+        .then((rows) => rows[0]);
       return row ?? null;
     },
 
@@ -29,12 +41,12 @@ export function createPlaceRepository(): PlaceRepository {
         updatedAt: new Date(),
       };
 
-      await db.insert(places).values(newPlace);
+      await db.insert(places).values({ ...newPlace, userId });
       return newPlace;
     },
 
     async list(): Promise<Place[]> {
-      return db.select().from(places).orderBy(places.name);
+      return db.select().from(places).where(eq(places.userId, userId)).orderBy(places.name);
     },
 
     async listByMoment(momentId: string): Promise<Place[]> {
@@ -42,8 +54,7 @@ export function createPlaceRepository(): PlaceRepository {
         .select({ places })
         .from(momentPlaces)
         .innerJoin(places, eq(momentPlaces.placeId, places.id))
-        .where(eq(momentPlaces.momentId, momentId))
-        ;
+        .where(and(eq(momentPlaces.momentId, momentId), eq(places.userId, userId)));
 
       return rows.map((r) => r.places);
     },
@@ -65,7 +76,7 @@ export function createPlaceRepository(): PlaceRepository {
         .select({ momentId: momentPlaces.momentId, places })
         .from(momentPlaces)
         .innerJoin(places, eq(momentPlaces.placeId, places.id))
-        .where(inArray(momentPlaces.momentId, momentIds))
+        .where(and(inArray(momentPlaces.momentId, momentIds), eq(places.userId, userId)))
         .orderBy(places.name);
 
       for (const r of rows) {
@@ -83,8 +94,7 @@ export function createPlaceRepository(): PlaceRepository {
       await db
         .update(places)
         .set({ ...patch, updatedAt: new Date() })
-        .where(eq(places.id, id))
-        ;
+        .where(and(eq(places.id, id), eq(places.userId, userId)));
 
       const updated = await this.findById(id);
       if (!updated) throw new Error(`Place ${id} not found after update`);

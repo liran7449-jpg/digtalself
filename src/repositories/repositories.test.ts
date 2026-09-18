@@ -11,7 +11,9 @@ afterAll(() => {
 });
 
 const load = async () => {
-  const { repo } = await import("./index");
+  const { repoFor } = await import("./index");
+  const { TEST_USER_ID } = await import("./test-setup");
+  const repo = repoFor(TEST_USER_ID);
   const dayKey = await import("@/domain/day-key");
   const transitions = await import("@/domain/transitions");
   return { repo, ...dayKey, ...transitions };
@@ -812,7 +814,7 @@ describe("Insight", () => {
 describe("Export", () => {
   it("导出包含全部实体与版本号", async () => {
     const { repo } = await load();
-    const dump = await repo.exports.exportAll("me");
+    const dump = await repo.exports.exportAll();
     expect(dump.schemaVersion).toBe(1);
     expect(dump.user).toBeTruthy();
     expect(dump.days.length).toBeGreaterThan(0);
