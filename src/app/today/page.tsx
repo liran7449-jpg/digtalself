@@ -1,5 +1,8 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { getRepo } from "@/repositories";
+import { requireUserId } from "@/lib/session";
+import { isBirthdayToday } from "@/domain/birthday";
+import { BirthdayGreeting } from "@/components/birthday/BirthdayGreeting";
 import { formatDayLong, greeting, toDayKey } from "@/domain/day-key";
 import { MorningSetup } from "./MorningSetup";
 import { MyState } from "./MyState";
@@ -15,15 +18,31 @@ export const dynamic = "force-dynamic";
 export default async function TodayPage() {
   // 绑定到当前登录用户的 repo。未登录会抛错（middleware 已经先拦了）
   const repo = await getRepo();
+  const userId = await requireUserId();
   const date = toDayKey();
   const now = new Date();
-  const day = await repo.days.ensure(date);
+  const [day, me] = await Promise.all([
+    repo.days.ensure(date),
+    repo.users.findById(userId),
+  ]);
   const dateLabel = formatDayLong(date);
+
+  /**
+   * 生日彩蛋。
+   *
+   * 必须在两个 return 分支都渲染：新用户第一次登录时 day.status 是
+   * not_started，会走下面的 Morning Setup 提前返回 —— 只加在后面那个
+   * 分支的话，「第一次登录」这个最该被祝福的时刻恰好看不到。
+   */
+  const birthdayGreeting = isBirthdayToday(me?.birthday, now) ? (
+    <BirthdayGreeting name={me?.name ?? null} dayKey={date} />
+  ) : null;
 
   // IA 第 8.1 节：今天还没初始化就先走 Morning Setup
   if (day.status === "not_started") {
     return (
       <AppShell current="/today" width="wide">
+        {birthdayGreeting && <div className="mb-8">{birthdayGreeting}</div>}
         <MorningSetup greeting={greeting(now)} dateLabel={dateLabel} />
       </AppShell>
     );
@@ -66,6 +85,9 @@ export default async function TodayPage() {
 
   return (
     <AppShell current="/today" width="wide">
+      {/* 生日祝福放在分栏之上、横跨整宽 —— 塞进左栏会被 sticky 带着滚 */}
+      {birthdayGreeting && <div className="mb-10">{birthdayGreeting}</div>}
+
       {/*
         左右分栏：左边是「今天的意图」（状态 + 日程），右边是「今天的真实」（记录流）。
         分开的理由是这两件事的节奏不同 —— 意图早上定一次，记录整天在长。

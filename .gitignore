@@ -55,3 +55,6 @@ next-env.d.ts
 # 数据备份
 backups/
 backup-*.json
+
+# Playwright MCP 调试产物
+.playwright-mcp/

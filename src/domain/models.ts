@@ -43,6 +43,11 @@ export const userSchema = z.object({
   /** 临时密码尚未改过。true 时应用应强制跳转改密码页。 */
   mustChangePassword: z.boolean(),
   name: z.string().max(80).nullable(),
+  /** 生日 "MM-DD"，不含年份（年份用不上，且能推算年龄）。 */
+  birthday: z
+    .string()
+    .regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, "生日格式必须是 MM-DD")
+    .nullable(),
   avatarUrl: z.string().url().nullable(),
   bio: z.string().max(2000).nullable(),
   occupation: z.string().max(120).nullable(),

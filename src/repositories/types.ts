@@ -54,11 +54,12 @@ export interface UserRepository {
   // ---- 认证：只在服务端认证流程使用 ----
   /** 按用户名取认证信息（含哈希）。登录时用。 */
   findCredentialsByUsername(username: string): Promise<UserCredentials | null>;
-  /** 建号。password 传明文，实现负责哈希。 */
+  /** 建号。password 传明文，实现负责哈希。birthday 是 "MM-DD"。 */
   create(input: {
     username: string;
     password: string;
     name?: string | null;
+    birthday?: string | null;
     mustChangePassword?: boolean;
   }): Promise<User>;
   /** 改密码。同时清掉 mustChangePassword。 */

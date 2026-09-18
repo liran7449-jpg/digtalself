@@ -52,6 +52,14 @@ export const users = pgTable("users", {
    */
   mustChangePassword: boolean("must_change_password").notNull().default(false),
   name: text("name"),
+  /**
+   * 生日，存 "MM-DD"（不含年份）。
+   *
+   * 只存月日是有意的：这个字段唯一的用途是「今天是不是你的生日」，
+   * 年份既用不上，又是敏感个人信息（能推算年龄）。§6 privacy by design ——
+   * 不收集用不到的东西。
+   */
+  birthday: text("birthday"),
   avatarUrl: text("avatar_url"),
   bio: text("bio"),
   occupation: text("occupation"),

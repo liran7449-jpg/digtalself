@@ -15,6 +15,13 @@
       "when": 1789715717771,
       "tag": "0001_multi_user",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789720998953,
+      "tag": "0002_user_birthday",
+      "breakpoints": true
     }
   ]
 }

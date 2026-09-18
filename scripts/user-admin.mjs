@@ -18,6 +18,7 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import postgres from "postgres";
 import { ulid } from "ulid";
+import { normalizeBirthday } from "../src/domain/birthday-plain.mjs";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -56,7 +57,7 @@ function normalizeUsername(raw) {
 
 async function list() {
   const rows = await sql`
-    SELECT id, username, name, must_change_password,
+    SELECT id, username, name, birthday, must_change_password,
            (password_hash IS NOT NULL) AS has_password, created_at
     FROM users ORDER BY created_at
   `;
@@ -69,6 +70,7 @@ async function list() {
     const flags = [
       r.has_password ? "有密码" : "⚠️ 无密码",
       r.must_change_password ? "待改密" : null,
+      r.birthday ? `生日 ${r.birthday}` : null,
     ].filter(Boolean);
     console.log(`  ${r.username.padEnd(16)} ${(r.name ?? "").padEnd(12)} ${flags.join(" / ")}`);
     console.log(`  ${"".padEnd(16)} id=${r.id}`);
@@ -76,7 +78,7 @@ async function list() {
   console.log();
 }
 
-async function create(rawUsername, name) {
+async function create(rawUsername, name, rawBirthday, rawPassword) {
   const username = normalizeUsername(rawUsername);
 
   const existing = await sql`SELECT id FROM users WHERE username = ${username}`;
@@ -85,21 +87,67 @@ async function create(rawUsername, name) {
     process.exit(1);
   }
 
-  const password = tempPassword();
+  /**
+   * 生日只存 MM-DD。给的格式不认识就直接报错，不静默存 null ——
+   * 静默的话你会以为设好了，到生日那天才发现彩蛋没出现。
+   */
+  let birthday = null;
+  if (rawBirthday) {
+    birthday = normalizeBirthday(rawBirthday);
+    if (!birthday) {
+      console.error(`❌ 生日格式无法识别：${JSON.stringify(rawBirthday)}`);
+      console.error("   支持：09-18 / 9-18 / 2026-09-18 / 0918");
+      process.exit(1);
+    }
+  }
+
+  /**
+   * 允许指定初始密码。
+   *
+   * 默认还是随机临时密码 —— 那是更安全的做法。但有时需要一个
+   * 能口头告诉对方的简单密码，此时仍然标记 must_change_password，
+   * 对方首次登录必须改掉。
+   */
+  const password = rawPassword || tempPassword();
+  if (rawPassword && rawPassword.length < 4) {
+    console.error("❌ 初始密码至少 4 位");
+    process.exit(1);
+  }
+
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const id = ulid();
 
   await sql`
-    INSERT INTO users (id, username, name, password_hash, must_change_password)
-    VALUES (${id}, ${username}, ${name ?? null}, ${passwordHash}, true)
+    INSERT INTO users (id, username, name, birthday, password_hash, must_change_password)
+    VALUES (${id}, ${username}, ${name ?? null}, ${birthday}, ${passwordHash}, true)
   `;
 
   console.log(`\n✅ 已建号\n`);
   console.log(`   用户名：${username}`);
-  console.log(`   临时密码：${password}`);
+  console.log(`   初始密码：${password}${rawPassword ? "（你指定的）" : "（随机生成）"}`);
+  if (birthday) console.log(`   生日：${birthday}`);
   console.log(`   id：${id}`);
-  console.log(`\n   把用户名和临时密码给对方。首次登录会强制改密码，`);
+  console.log(`\n   把用户名和初始密码给对方。首次登录会强制改密码，`);
   console.log(`   改完之后你就不知道对方密码了。\n`);
+}
+
+/** 单独设置生日，给已存在的账号用。 */
+async function setBirthday(rawUsername, rawBirthday) {
+  const username = normalizeUsername(rawUsername);
+  const birthday = normalizeBirthday(rawBirthday ?? "");
+  if (!birthday) {
+    console.error(`❌ 生日格式无法识别：${JSON.stringify(rawBirthday)}`);
+    console.error("   支持：09-18 / 9-18 / 2026-09-18 / 0918");
+    process.exit(1);
+  }
+  const rows = await sql`
+    UPDATE users SET birthday = ${birthday} WHERE username = ${username} RETURNING id
+  `;
+  if (rows.length === 0) {
+    console.error(`❌ 用户不存在：${username}`);
+    process.exit(1);
+  }
+  console.log(`\n✅ 已设置 ${username} 的生日：${birthday}\n`);
 }
 
 async function setPassword(rawUsername) {
@@ -155,7 +203,10 @@ try {
       await list();
       break;
     case "create":
-      await create(args[0], args[1]);
+      await create(args[0], args[1], args[2], args[3]);
+      break;
+    case "set-birthday":
+      await setBirthday(args[0], args[1]);
       break;
     case "set-password":
       await setPassword(args[0]);
@@ -166,7 +217,8 @@ try {
     default:
       console.log("用法：");
       console.log("  node scripts/user-admin.mjs list");
-      console.log("  node scripts/user-admin.mjs create <用户名> [显示名]");
+      console.log("  node scripts/user-admin.mjs create <用户名> [显示名] [生日 MM-DD] [初始密码]");
+      console.log("  node scripts/user-admin.mjs set-birthday <用户名> <生日 MM-DD>");
       console.log("  node scripts/user-admin.mjs set-password <用户名>");
       console.log("  node scripts/user-admin.mjs set-password-plain <用户名> <密码>");
       process.exitCode = 1;

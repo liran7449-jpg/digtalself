@@ -188,3 +188,32 @@
 @utility animate-rise {
   animation: rise var(--duration-slow) var(--ease-calm) both;
 }
+
+/**
+ * 生日彩蛋的小光点：从底部缓慢上浮，两端淡入淡出。
+ *
+ * 9 秒一轮、只有 5 个点，是刻意慢的 —— 快速上升的粒子会变成
+ * 「加载中」的视觉信号，抢走正文的注意力。这里要的是余光里的一点动静。
+ *
+ * 上面的 prefers-reduced-motion 块会把它压成 0.01ms，所以
+ * 对动效敏感的用户只会看到静态的祝福文字，不需要额外处理。
+ */
+@keyframes birthday-float {
+  0% {
+    opacity: 0;
+    transform: translateY(100%) scale(0.8);
+  }
+  20%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20%) scale(1);
+  }
+}
+
+.birthday-mote {
+  bottom: 0;
+  animation: birthday-float 9s var(--ease-calm) infinite;
+}

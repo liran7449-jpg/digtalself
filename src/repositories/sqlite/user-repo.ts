@@ -26,6 +26,7 @@ function toUser(r: Row): User {
     username: r.username,
     mustChangePassword: r.mustChangePassword,
     name: r.name,
+    birthday: r.birthday,
     avatarUrl: r.avatarUrl,
     bio: r.bio,
     occupation: r.occupation,
@@ -92,7 +93,7 @@ export const sqliteUserRepo: UserRepository = {
     return rows[0] ?? null;
   },
 
-  async create({ username, password, name, mustChangePassword = false }) {
+  async create({ username, password, name, birthday, mustChangePassword = false }) {
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const rows = await db
       .insert(users)
@@ -102,6 +103,7 @@ export const sqliteUserRepo: UserRepository = {
         passwordHash,
         mustChangePassword,
         name: name ?? null,
+        birthday: birthday ?? null,
       })
       .returning();
     return toUser(firstOrThrow(rows, "User", username));
