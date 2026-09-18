@@ -28,10 +28,43 @@ import type {
   PlanStatus,
 } from "@/domain/enums";
 
+/**
+ * 认证用的用户记录。带 passwordHash，**只允许在服务端认证流程里使用**。
+ *
+ * 跟 User 分开是有意的：User 会被传到 UI / Server Component 的 props，
+ * 一旦哈希混进那条链路就可能出现在 HTML 里。类型分开让它不可能被误传。
+ */
+export interface UserCredentials {
+  id: string;
+  username: string;
+  passwordHash: string | null;
+  mustChangePassword: boolean;
+}
+
 export interface UserRepository {
-  /** 单用户产品，没有则创建空白记录 */
-  getOrCreate(): Promise<User>;
-  update(patch: Partial<Omit<User, "id" | "createdAt">>): Promise<User>;
+  /** 按 id 取，不存在返回 null */
+  findById(id: string): Promise<User | null>;
+  /** 按 id 取，不存在则创建空白记录（需要 username 兜底） */
+  getOrCreate(id: string, username: string): Promise<User>;
+  update(
+    id: string,
+    patch: Partial<Omit<User, "id" | "username" | "createdAt">>,
+  ): Promise<User>;
+
+  // ---- 认证：只在服务端认证流程使用 ----
+  /** 按用户名取认证信息（含哈希）。登录时用。 */
+  findCredentialsByUsername(username: string): Promise<UserCredentials | null>;
+  /** 建号。password 传明文，实现负责哈希。 */
+  create(input: {
+    username: string;
+    password: string;
+    name?: string | null;
+    mustChangePassword?: boolean;
+  }): Promise<User>;
+  /** 改密码。同时清掉 mustChangePassword。 */
+  setPassword(id: string, password: string): Promise<void>;
+  /** 列出全部用户，管理脚本用。 */
+  listAll(): Promise<User[]>;
 }
 
 /**
@@ -307,9 +340,14 @@ export interface GrowthEvidenceRepository {
   create(input: Omit<GrowthEvidence, "id" | "createdAt" | "updatedAt">): Promise<GrowthEvidence>;
 }
 
-/** 全量导出。PRD 第 31 节把「用户能看到全部数据」列为 P0。 */
+/**
+ * 全量导出。PRD 第 31 节把「用户能看到全部数据」列为 P0。
+ *
+ * ⚠️ userId 必传：导出是最容易泄露的一条路径 —— 一个漏掉过滤的
+ * exportAll 会把所有人的日记打包成一个 JSON 交出去。
+ */
 export interface ExportRepository {
-  exportAll(): Promise<{
+  exportAll(userId: string): Promise<{
     exportedAt: string;
     schemaVersion: number;
     user: User;

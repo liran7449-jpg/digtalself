@@ -1,0 +1,179 @@
+#!/usr/bin/env node
+/**
+ * 用户管理命令行工具。
+ *
+ * 故意不做网页管理后台：建号是低频操作，命令行少一个攻击面，
+ * 也不需要考虑「谁有权限进管理页」这个问题。
+ *
+ * 用法：
+ *   node scripts/user-admin.mjs list
+ *   node scripts/user-admin.mjs create <用户名> [显示名]
+ *   node scripts/user-admin.mjs set-password <用户名>
+ *
+ * create 会生成随机临时密码并打印，用户首次登录必须改掉。
+ * 目标库由 DATABASE_URL 决定；操作生产库时传 CLOUD_DB_URL 那个值。
+ */
+
+import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
+import postgres from "postgres";
+import { ulid } from "ulid";
+
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error("❌ 缺少 DATABASE_URL");
+  console.error("   本地：set -a; . ./.env.local; set +a");
+  console.error("   生产：DATABASE_URL=\"<Railway 连接串>\"");
+  process.exit(1);
+}
+
+const BCRYPT_ROUNDS = 10;
+const USERNAME_RE = /^[a-z0-9_-]{3,32}$/;
+
+const sql = postgres(DATABASE_URL, { ssl: "prefer" });
+
+/**
+ * 生成临时密码。
+ *
+ * 用 crypto.randomBytes 而不是 Math.random —— 后者可预测，
+ * 而这串东西是别人账号的唯一凭据。去掉容易看错的字符（0/O、1/l/I）。
+ */
+function tempPassword() {
+  const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = crypto.randomBytes(16);
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
+function normalizeUsername(raw) {
+  const username = String(raw ?? "").trim().toLowerCase();
+  if (!USERNAME_RE.test(username)) {
+    console.error(`❌ 用户名不合法：${JSON.stringify(raw)}`);
+    console.error("   规则：小写字母 / 数字 / 下划线 / 连字符，3-32 位");
+    process.exit(1);
+  }
+  return username;
+}
+
+async function list() {
+  const rows = await sql`
+    SELECT id, username, name, must_change_password,
+           (password_hash IS NOT NULL) AS has_password, created_at
+    FROM users ORDER BY created_at
+  `;
+  if (rows.length === 0) {
+    console.log("（没有用户）");
+    return;
+  }
+  console.log(`\n${rows.length} 个用户：\n`);
+  for (const r of rows) {
+    const flags = [
+      r.has_password ? "有密码" : "⚠️ 无密码",
+      r.must_change_password ? "待改密" : null,
+    ].filter(Boolean);
+    console.log(`  ${r.username.padEnd(16)} ${(r.name ?? "").padEnd(12)} ${flags.join(" / ")}`);
+    console.log(`  ${"".padEnd(16)} id=${r.id}`);
+  }
+  console.log();
+}
+
+async function create(rawUsername, name) {
+  const username = normalizeUsername(rawUsername);
+
+  const existing = await sql`SELECT id FROM users WHERE username = ${username}`;
+  if (existing.length > 0) {
+    console.error(`❌ 用户名已存在：${username}`);
+    process.exit(1);
+  }
+
+  const password = tempPassword();
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const id = ulid();
+
+  await sql`
+    INSERT INTO users (id, username, name, password_hash, must_change_password)
+    VALUES (${id}, ${username}, ${name ?? null}, ${passwordHash}, true)
+  `;
+
+  console.log(`\n✅ 已建号\n`);
+  console.log(`   用户名：${username}`);
+  console.log(`   临时密码：${password}`);
+  console.log(`   id：${id}`);
+  console.log(`\n   把用户名和临时密码给对方。首次登录会强制改密码，`);
+  console.log(`   改完之后你就不知道对方密码了。\n`);
+}
+
+async function setPassword(rawUsername) {
+  const username = normalizeUsername(rawUsername);
+  const rows = await sql`SELECT id FROM users WHERE username = ${username}`;
+  if (rows.length === 0) {
+    console.error(`❌ 用户不存在：${username}`);
+    process.exit(1);
+  }
+
+  const password = tempPassword();
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  await sql`
+    UPDATE users SET password_hash = ${passwordHash}, must_change_password = true
+    WHERE id = ${rows[0].id}
+  `;
+
+  console.log(`\n✅ 已重置 ${username} 的密码\n`);
+  console.log(`   临时密码：${password}`);
+  console.log(`\n   对方下次登录会被要求改密码。\n`);
+}
+
+/**
+ * 把明文密码直接设给某个用户，不要求改密。
+ *
+ * 只给一个场景用：把原本存在环境变量里的密码搬进数据库，
+ * 让 owner 的密码保持不变。日常改密码走应用里的改密码页。
+ */
+async function setPasswordPlain(rawUsername, password) {
+  const username = normalizeUsername(rawUsername);
+  if (!password || password.length < 6) {
+    console.error("❌ 密码至少 6 位");
+    process.exit(1);
+  }
+  const rows = await sql`SELECT id FROM users WHERE username = ${username}`;
+  if (rows.length === 0) {
+    console.error(`❌ 用户不存在：${username}`);
+    process.exit(1);
+  }
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  await sql`
+    UPDATE users SET password_hash = ${passwordHash}, must_change_password = false
+    WHERE id = ${rows[0].id}
+  `;
+  console.log(`\n✅ 已设置 ${username} 的密码（不要求改密）\n`);
+}
+
+const [cmd, ...args] = process.argv.slice(2);
+
+try {
+  switch (cmd) {
+    case "list":
+      await list();
+      break;
+    case "create":
+      await create(args[0], args[1]);
+      break;
+    case "set-password":
+      await setPassword(args[0]);
+      break;
+    case "set-password-plain":
+      await setPasswordPlain(args[0], args[1]);
+      break;
+    default:
+      console.log("用法：");
+      console.log("  node scripts/user-admin.mjs list");
+      console.log("  node scripts/user-admin.mjs create <用户名> [显示名]");
+      console.log("  node scripts/user-admin.mjs set-password <用户名>");
+      console.log("  node scripts/user-admin.mjs set-password-plain <用户名> <密码>");
+      process.exitCode = 1;
+  }
+} catch (e) {
+  console.error("\n❌ 失败：", e.message);
+  process.exitCode = 1;
+} finally {
+  await sql.end();
+}

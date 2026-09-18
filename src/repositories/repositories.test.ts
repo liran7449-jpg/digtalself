@@ -20,11 +20,50 @@ const load = async () => {
 describe("User", () => {
   it("getOrCreate 幂等，update 生效", async () => {
     const { repo } = await load();
-    const a = await repo.users.getOrCreate();
-    const b = await repo.users.getOrCreate();
+    const a = await repo.users.getOrCreate("me", "ran");
+    const b = await repo.users.getOrCreate("me", "ran");
     expect(a.id).toBe(b.id);
-    const named = await repo.users.update({ name: "Ran" });
+    const named = await repo.users.update("me", { name: "Ran" });
     expect(named.name).toBe("Ran");
+  });
+
+  it("建号：用户名唯一，密码存哈希不存明文", async () => {
+    const { repo } = await load();
+    const created = await repo.users.create({
+      username: "tester",
+      password: "temp-pass-123",
+      mustChangePassword: true,
+    });
+    expect(created.username).toBe("tester");
+    expect(created.mustChangePassword).toBe(true);
+
+    // 明文绝不能落库
+    const creds = await repo.users.findCredentialsByUsername("tester");
+    expect(creds).not.toBeNull();
+    expect(creds!.passwordHash).not.toBe("temp-pass-123");
+    expect(creds!.passwordHash).toMatch(/^\$2[aby]\$/);
+
+    // 用户名唯一
+    await expect(
+      repo.users.create({ username: "tester", password: "another" }),
+    ).rejects.toThrow();
+  });
+
+  it("改密码后 mustChangePassword 自动清掉", async () => {
+    const { repo } = await load();
+    const u = await repo.users.create({
+      username: "pwchange",
+      password: "temp-1",
+      mustChangePassword: true,
+    });
+    const before = await repo.users.findCredentialsByUsername("pwchange");
+    expect(before!.mustChangePassword).toBe(true);
+
+    await repo.users.setPassword(u.id, "brand-new-password");
+
+    const after = await repo.users.findCredentialsByUsername("pwchange");
+    expect(after!.mustChangePassword).toBe(false);
+    expect(after!.passwordHash).not.toBe(before!.passwordHash);
   });
 });
 
@@ -773,7 +812,7 @@ describe("Insight", () => {
 describe("Export", () => {
   it("导出包含全部实体与版本号", async () => {
     const { repo } = await load();
-    const dump = await repo.exports.exportAll();
+    const dump = await repo.exports.exportAll("me");
     expect(dump.schemaVersion).toBe(1);
     expect(dump.user).toBeTruthy();
     expect(dump.days.length).toBeGreaterThan(0);

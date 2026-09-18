@@ -20,6 +20,14 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import postgres from "postgres";
 
+/**
+ * 测试里的默认用户 id。
+ *
+ * 必须是 'me'：schema 里 11 张表的 user_id 都是 DEFAULT 'me'，
+ * 不显式传 userId 的写入会落到这个 id 上，外键要求它存在。
+ */
+export const TEST_USER_ID = "me";
+
 /** 表顺序 = 外键依赖顺序，清空时倒序（先子后父）。 */
 const TABLES = [
   "users",
@@ -147,6 +155,16 @@ export async function useTempDb(): Promise<string> {
   const sql = postgres(url, { max: 1 });
   try {
     await sql.unsafe(`TRUNCATE TABLE ${[...TABLES].reverse().map((t) => `"${t}"`).join(", ")} CASCADE`);
+    /**
+     * 建出默认用户。
+     *
+     * 11 张表的 user_id 都有 DEFAULT 'me' 且外键指向 users，
+     * 所以清空后必须先有这一行，否则任何 insert 都会违反外键。
+     * 测试里不显式传 userId 的调用（大多数）都落在这个用户名下。
+     */
+    await sql`
+      INSERT INTO users (id, username, name) VALUES (${TEST_USER_ID}, 'testuser', 'Test User')
+    `;
   } finally {
     await sql.end();
   }

@@ -26,8 +26,22 @@ const id = z.string().min(1);
 const ts = z.date();
 
 // ---------------------------------------------------------------- User
+/**
+ * 用户名规则：小写字母、数字、下划线、连字符，3-32 位。
+ * 不允许大写是为了避免 Ran / ran 被当成两个账号 —— 建号时统一转小写。
+ */
+const username = z
+  .string()
+  .min(3, "用户名至少 3 位")
+  .max(32, "用户名最多 32 位")
+  .regex(/^[a-z0-9_-]+$/, "用户名只能用小写字母、数字、下划线、连字符");
+
 export const userSchema = z.object({
   id,
+  /** 登录标识，唯一。跟 name（显示名）分开，改昵称不影响登录。 */
+  username,
+  /** 临时密码尚未改过。true 时应用应强制跳转改密码页。 */
+  mustChangePassword: z.boolean(),
   name: z.string().max(80).nullable(),
   avatarUrl: z.string().url().nullable(),
   bio: z.string().max(2000).nullable(),
