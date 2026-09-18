@@ -3,8 +3,8 @@ import { dropTempDb, useTempDb } from "./test-setup";
 
 // 必须先建临时库再 import repositories，import 顺序有副作用
 let tmpDir: string;
-beforeAll(() => {
-  tmpDir = useTempDb();
+beforeAll(async () => {
+  tmpDir = await useTempDb();
 });
 afterAll(() => {
   dropTempDb(tmpDir);

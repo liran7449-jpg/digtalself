@@ -1,7 +1,8 @@
 import postgres from 'postgres';
+import { connectCloud } from './cloud-db.mjs';
 
-const localSql = postgres('postgresql://postgres:localdev123@localhost:5432/digitalself');
-const cloudSql = postgres('postgresql://postgres:FUQtDjndJKLGNVcWByupxCSsnPOKEWIb@tokaido.proxy.rlwy.net:55374/railway');
+const localSql = postgres(process.env.DATABASE_URL ?? 'postgresql://postgres:localdev123@localhost:5432/digitalself');
+const cloudSql = connectCloud();
 
 console.log('📷 本地 media 表记录：');
 const localMedia = await localSql`SELECT id, storage_key, type, size, created_at FROM media ORDER BY created_at`;

@@ -1,6 +1,6 @@
-import postgres from 'postgres';
+import { connectCloud } from './cloud-db.mjs';
 
-const sql = postgres('postgresql://postgres:FUQtDjndJKLGNVcWByupxCSsnPOKEWIb@tokaido.proxy.rlwy.net:55374/railway');
+const sql = connectCloud();
 
 const moments = await sql`SELECT COUNT(*) as count FROM moments`;
 const days = await sql`SELECT COUNT(*) as count FROM days`;

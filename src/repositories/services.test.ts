@@ -14,8 +14,8 @@ import { useTempDb, dropTempDb } from "./test-setup";
 describe("Service 层", () => {
   let tempDir: string;
 
-  beforeAll(() => {
-    tempDir = useTempDb();
+  beforeAll(async () => {
+    tempDir = await useTempDb();
   });
 
   afterAll(() => {

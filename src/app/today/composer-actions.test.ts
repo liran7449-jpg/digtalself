@@ -13,8 +13,8 @@ import { dropTempDb, useTempDb } from "@/repositories/test-setup";
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 let tmpDir: string;
-beforeAll(() => {
-  tmpDir = useTempDb();
+beforeAll(async () => {
+  tmpDir = await useTempDb();
 });
 afterAll(() => {
   dropTempDb(tmpDir);
