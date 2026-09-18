@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Sparkle } from "@/components/ui/Primitives";
-import { SignOutButton } from "./SignOutButton";
+import { AccountMenu } from "./AccountMenu";
+import { userRepo } from "@/repositories";
+import { getCurrentUserId } from "@/lib/session";
 
 const NAV = [
   { href: "/today", label: "Today" },
@@ -13,7 +15,7 @@ const NAV = [
  * IA 第 3 节：导航应该安静。不做侧边栏、图标体系、badge、未读红点。
  * MVP 只有三个一级入口。
  */
-export function AppShell({
+export async function AppShell({
   current,
   /**
    * prose：单栏阅读宽度，Today / 详情页用。
@@ -26,6 +28,16 @@ export function AppShell({
   width?: "prose" | "wide";
   children: ReactNode;
 }) {
+  /**
+   * 菜单上显示当前用户名，让「我现在是谁」一眼可见 ——
+   * 多用户下这件事很重要，尤其两个人共用一台设备时。
+   *
+   * 这里用 getCurrentUserId 而不是 requireUserId：AppShell 只是外壳，
+   * 拿不到用户就退化成不显示菜单，不该让整页崩掉。
+   */
+  const userId = await getCurrentUserId();
+  const me = userId ? await userRepo.findById(userId) : null;
+
   return (
     <div className="min-h-dvh">
       <header className="border-b border-line">
@@ -54,8 +66,8 @@ export function AppShell({
             })}
           </nav>
 
-          <div className="flex items-center gap-4">
-            <SignOutButton />
+          <div className="flex items-center gap-2">
+            {me && <AccountMenu name={me.name ?? me.username} />}
 
             {/* AI Butler 全局入口。P0 尚未接 AI，先禁用并说明。 */}
             <button

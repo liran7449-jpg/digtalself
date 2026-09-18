@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 /**
  * 改密码页。
@@ -67,6 +68,24 @@ export default function ChangePasswordPage() {
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             改完之后请记住它，这是进入你自己空间的唯一凭据
           </p>
+        </div>
+
+        {/*
+          返回入口。误点进来时要能出去 ——
+          没有它，这个页面在视觉上就是个死胡同（它不套 AppShell，
+          所以没有导航栏）。
+
+          拿临时密码首次登录的用户点它会被 middleware 弹回来，
+          这是对的：那种情况下必须改完才能用。
+        */}
+        <div className="mb-6 text-center">
+          <Link
+            href="/today"
+            className="text-sm text-neutral-500 underline-offset-4 hover:text-neutral-800
+              hover:underline dark:text-neutral-400 dark:hover:text-neutral-200"
+          >
+            ← 先不改，回到 Today
+          </Link>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
