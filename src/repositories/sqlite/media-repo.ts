@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import sharp from "sharp";
 import { db } from "@/db/client";
 import { media, momentMedia } from "@/db/schema";
@@ -35,6 +35,34 @@ export function createMediaRepository(): MediaRepository {
         ;
 
       return rows.map((r: { media: Media }) => r.media);
+    },
+
+    /**
+     * 一次取回多条 Moment 的图片，按 momentId 分组。
+     *
+     * 列表页原本对每条 Moment 单独调 listByMoment，34 条记录就是 34 次往返；
+     * 连接池只有 10 条连接，这些查询是排队执行的。批量版把它压成 1 次。
+     *
+     * 按 sortOrder 排序 —— 一条 Moment 的多张图有先后，顺序错了就不是原来那组照片。
+     */
+    async listByMoments(momentIds: string[]): Promise<Map<string, Media[]>> {
+      const byMoment = new Map<string, Media[]>();
+      // 空数组会让 inArray 生成非法 SQL，直接短路
+      if (momentIds.length === 0) return byMoment;
+
+      const rows = await db
+        .select({ momentId: momentMedia.momentId, media })
+        .from(momentMedia)
+        .innerJoin(media, eq(momentMedia.mediaId, media.id))
+        .where(inArray(momentMedia.momentId, momentIds))
+        .orderBy(momentMedia.sortOrder);
+
+      for (const r of rows as { momentId: string; media: Media }[]) {
+        const list = byMoment.get(r.momentId);
+        if (list) list.push(r.media);
+        else byMoment.set(r.momentId, [r.media]);
+      }
+      return byMoment;
     },
 
     async create(input: {

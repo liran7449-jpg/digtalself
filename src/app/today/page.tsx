@@ -32,18 +32,30 @@ export default async function TodayPage() {
     repo.moments.listByDate(date),
   ]);
 
-  // 为每个 Moment 加载关联数据（图片/人物/地点/话题）
-  const momentsWithRelations = await Promise.all(
-    moments.map(async (m) => {
-      const [media, people, places, topics] = await Promise.all([
-        repo.media.listByMoment(m.id),
-        repo.people.listByMoment(m.id),
-        repo.places.listByMoment(m.id),
-        repo.topics.listByMoment(m.id),
-      ]);
-      return { ...m, media, people, places, topics };
-    }),
-  );
+  /**
+   * 为每个 Moment 加载关联数据（图片/人物/地点/话题）。
+   *
+   * 四次批量查询，而不是每条记录查四次 —— 后者是 N+1：34 条记录会发出
+   * 136 次查询，而连接池只有 10 条连接，这些查询得排队。
+   * 批量版固定 4 次，与记录条数无关。
+   */
+  const momentIds = moments.map((m) => m.id);
+  const [mediaByMoment, peopleByMoment, placesByMoment, topicsByMoment] =
+    await Promise.all([
+      repo.media.listByMoments(momentIds),
+      repo.people.listByMoments(momentIds),
+      repo.places.listByMoments(momentIds),
+      repo.topics.listByMoments(momentIds),
+    ]);
+
+  const momentsWithRelations = moments.map((m) => ({
+    ...m,
+    // 没有关联时给空数组，下游按数组渲染，不该看到 undefined
+    media: mediaByMoment.get(m.id) ?? [],
+    people: peopleByMoment.get(m.id) ?? [],
+    places: placesByMoment.get(m.id) ?? [],
+    topics: topicsByMoment.get(m.id) ?? [],
+  }));
 
   // 没做完的事只在 End My Day 问一次，白天不催
   const unfinishedCount = plans.filter(

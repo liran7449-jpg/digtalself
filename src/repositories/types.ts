@@ -242,6 +242,11 @@ export interface PersonRepository {
   list(): Promise<Person[]>;
   /** 查询 Moment 关联的所有 Person */
   listByMoment(momentId: string): Promise<Person[]>;
+  /**
+   * 批量查询多条 Moment 的 Person，按 momentId 分组。
+   * 列表页用这个 —— 逐条调 listByMoment 是 N+1，34 条记录就是 34 次往返。
+   */
+  listByMoments(momentIds: string[]): Promise<Map<string, Person[]>>;
   update(id: string, patch: Partial<Pick<Person, "name" | "notes">>): Promise<Person>;
 }
 
@@ -252,6 +257,11 @@ export interface PlaceRepository {
   list(): Promise<Place[]>;
   /** 查询 Moment 关联的所有 Place */
   listByMoment(momentId: string): Promise<Place[]>;
+  /**
+   * 批量查询多条 Moment 的 Place，按 momentId 分组。
+   * 列表页用这个 —— 逐条调 listByMoment 是 N+1。
+   */
+  listByMoments(momentIds: string[]): Promise<Map<string, Place[]>>;
   update(id: string, patch: Partial<Pick<Place, "name" | "notes">>): Promise<Place>;
 }
 
@@ -262,12 +272,22 @@ export interface TopicRepository {
   list(): Promise<Topic[]>;
   /** 查询 Moment 关联的所有 Topic */
   listByMoment(momentId: string): Promise<Topic[]>;
+  /**
+   * 批量查询多条 Moment 的 Topic，按 momentId 分组。
+   * 列表页用这个 —— 逐条调 listByMoment 是 N+1。
+   */
+  listByMoments(momentIds: string[]): Promise<Map<string, Topic[]>>;
 }
 
 export interface MediaRepository {
   findById(id: string): Promise<Media | null>;
   /** 查询 Moment 关联的所有 Media */
   listByMoment(momentId: string): Promise<Media[]>;
+  /**
+   * 批量查询多条 Moment 的 Media，按 momentId 分组，按 sortOrder 排序。
+   * 列表页用这个 —— 逐条调 listByMoment 是 N+1。
+   */
+  listByMoments(momentIds: string[]): Promise<Map<string, Media[]>>;
   /** 上传并存储。返回 Media 记录（含 id 和 storageKey） */
   create(input: {
     userId: string;
