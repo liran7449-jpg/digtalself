@@ -7,14 +7,26 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { dropTempDb, useTempDb } from "@/repositories/test-setup";
+import { dropTempDb, useTempDb, TEST_USER_ID } from "@/repositories/test-setup";
 
 // revalidatePath 只在 Next 请求上下文里有效，测试里换成空实现
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
+/**
+ * session 也只在请求上下文里有效 —— requireUserId() 会去读 cookie。
+ * 测试里固定返回测试用户，等价于「已登录」。
+ *
+ * 只 mock 这一个函数，其余保持真实实现：把整个模块换掉会让
+ * 「未登录时会怎样」这类行为在测试里失去意义。
+ */
+vi.mock("@/lib/session", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/session")>()),
+  requireUserId: async () => TEST_USER_ID,
+}));
+
 let tmpDir: string;
-beforeAll(() => {
-  tmpDir = useTempDb();
+beforeAll(async () => {
+  tmpDir = await useTempDb();
 });
 afterAll(() => {
   dropTempDb(tmpDir);
@@ -22,7 +34,9 @@ afterAll(() => {
 
 const load = async () => {
   const { createMomentWithMedia } = await import("./composer-actions");
-  const { repo } = await import("@/repositories");
+  const { repoFor } = await import("@/repositories");
+  const { TEST_USER_ID } = await import("@/repositories/test-setup");
+  const repo = repoFor(TEST_USER_ID);
   return { createMomentWithMedia, repo };
 };
 

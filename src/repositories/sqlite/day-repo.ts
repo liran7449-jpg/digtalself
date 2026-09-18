@@ -28,27 +28,6 @@ function toDay(r: Row): Day {
   };
 }
 
-async function find(date: DayKey): Promise<Day | null> {
-  const rows = await db.select().from(days).where(eq(days.date, date)).limit(1);
-  return rows[0] ? toDay(rows[0]) : null;
-}
-
-async function ensure(date: DayKey): Promise<Day> {
-  const existing = await find(date);
-  if (existing) return existing;
-
-  // 并发首次访问同一天时可能撞主键，撞了就读回来
-  const rows = await db
-    .insert(days)
-    .values({ date, status: "not_started" })
-    .onConflictDoNothing()
-    .returning();
-
-  if (rows[0]) return toDay(rows[0]);
-  const after = await find(date);
-  return firstOrThrow(after ? [after] : [], "Day", date);
-}
-
 /**
  * 状态只前进不后退。已经 reflected 的一天再改 mood 不该把状态拉回 started，
  * 所以这里用流转表判断，不合法就保持原状态。
@@ -74,167 +53,199 @@ function toReflected(from: DayStatus): DayStatus {
   return TO_REFLECTED.reduce((s, next) => advance(s, next), from);
 }
 
-export const sqliteDayRepo: DayRepository = {
-  find,
-  ensure,
+/**
+ * days 的主键是 (userId, date) 复合键，所以每次定位一行都要两个条件。
+ * 少写 userId 不会报错，只会命中别人那一天 —— 两个用户当然都有 9 月 18 日。
+ */
+export function createDayRepository(userId: string): DayRepository {
+  /** 定位单行的 where 子句。所有 update 都必须用它，不能只写 date。 */
+  const atDate = (date: DayKey) => and(eq(days.userId, userId), eq(days.date, date));
 
-  async applyMorningSetup(date, input: MorningSetupInput) {
-    const parsed = morningSetupSchema.parse(input);
-    const day = await ensure(date);
+  async function find(date: DayKey): Promise<Day | null> {
+    const rows = await db.select().from(days).where(atDate(date)).limit(1);
+    return rows[0] ? toDay(rows[0]) : null;
+  }
 
+  async function ensure(date: DayKey): Promise<Day> {
+    const existing = await find(date);
+    if (existing) return existing;
+
+    // 并发首次访问同一天时可能撞主键，撞了就读回来
     const rows = await db
-      .update(days)
-      .set({
-        mood: parsed.mood,
-        focus: parsed.focus,
-        status: advance(day.status, "started"),
-      })
-      .where(eq(days.date, date))
+      .insert(days)
+      .values({ userId, date, status: "not_started" })
+      .onConflictDoNothing()
       .returning();
 
-    return toDay(firstOrThrow(rows, "Day", date));
-  },
+    if (rows[0]) return toDay(rows[0]);
+    const after = await find(date);
+    return firstOrThrow(after ? [after] : [], "Day", date);
+  }
 
-  /**
-   * 部分更新。只写 patch 里出现的键：
-   * 键不存在 = 不动，值为 null = 显式清空。
-   * 直接展开整个 patch 会把未传的字段写成 undefined，Drizzle 会忽略，
-   * 但显式传入的 null 必须能落库，所以要逐字段判断 `in`。
-   */
-  async updateState(date, patch) {
-    const day = await ensure(date);
+  return {
+    find,
+    ensure,
 
-    const set: Partial<Row> = {};
-    if ("mood" in patch) set.mood = patch.mood ?? null;
-    if ("focus" in patch) set.focus = patch.focus ?? null;
+    async applyMorningSetup(date, input: MorningSetupInput) {
+      const parsed = morningSetupSchema.parse(input);
+      const day = await ensure(date);
 
-    // 动手改状态说明这一天已经开始了
-    set.status = advance(day.status, "started");
+      const rows = await db
+        .update(days)
+        .set({
+          mood: parsed.mood,
+          focus: parsed.focus,
+          status: advance(day.status, "started"),
+        })
+        .where(atDate(date))
+        .returning();
 
-    const rows = await db
-      .update(days)
-      .set(set)
-      .where(eq(days.date, date))
-      .returning();
-    return toDay(firstOrThrow(rows, "Day", date));
-  },
+      return toDay(firstOrThrow(rows, "Day", date));
+    },
 
-  async markReadyToReflect(date) {
-    const day = await ensure(date);
-    const rows = await db
-      .update(days)
-      .set({
-        status: advance(day.status, "ready_to_reflect"),
-      })
-      .where(eq(days.date, date))
-      .returning();
-    return toDay(firstOrThrow(rows, "Day", date));
-  },
+    /**
+     * 部分更新。只写 patch 里出现的键：
+     * 键不存在 = 不动，值为 null = 显式清空。
+     * 直接展开整个 patch 会把未传的字段写成 undefined，Drizzle 会忽略，
+     * 但显式传入的 null 必须能落库，所以要逐字段判断 `in`。
+     */
+    async updateState(date, patch) {
+      const day = await ensure(date);
 
-  async markReflected(date) {
-    const day = await ensure(date);
-    const rows = await db
-      .update(days)
-      .set({ status: toReflected(day.status) })
-      .where(eq(days.date, date))
-      .returning();
-    return toDay(firstOrThrow(rows, "Day", date));
-  },
+      const set: Partial<Row> = {};
+      if ("mood" in patch) set.mood = patch.mood ?? null;
+      if ("focus" in patch) set.focus = patch.focus ?? null;
 
-  async saveReflection(date, input) {
-    const day = await ensure(date);
+      // 动手改状态说明这一天已经开始了
+      set.status = advance(day.status, "started");
 
-    // 反思存的是那一刻的真实想法，不该被日后的自己修饰。
-    // 约束放在这一层而不只是隐藏表单：并发提交或直接调用都会被挡住。
-    if (day.reflectedAt !== null) {
-      throw new Error(`Day ${date} 已经反思过了，不能重写。`);
-    }
+      const rows = await db.update(days).set(set).where(atDate(date)).returning();
+      return toDay(firstOrThrow(rows, "Day", date));
+    },
 
-    const at = now();
-    // 一次性提交，三项一起写。全部可空 —— 每个问题都能跳过。
-    const rows = await db
-      .update(days)
-      .set({
-        eveningMood: input.eveningMood ?? null,
-        stayedWithYou: input.stayedWithYou?.trim() || null,
-        learned: input.learned?.trim() || null,
-        reflectedAt: at,
-        status: toReflected(day.status),
-      })
-      .where(eq(days.date, date))
-      .returning();
-    return toDay(firstOrThrow(rows, "Day", date));
-  },
+    async markReadyToReflect(date) {
+      const day = await ensure(date);
+      const rows = await db
+        .update(days)
+        .set({
+          status: advance(day.status, "ready_to_reflect"),
+        })
+        .where(atDate(date))
+        .returning();
+      return toDay(firstOrThrow(rows, "Day", date));
+    },
 
-  async dismissCarry(date) {
-    await ensure(date);
-    const rows = await db
-      .update(days)
-      .set({ carryDismissed: true })
-      .where(eq(days.date, date))
-      .returning();
-    return toDay(firstOrThrow(rows, "Day", date));
-  },
+    async markReflected(date) {
+      const day = await ensure(date);
+      const rows = await db
+        .update(days)
+        .set({ status: toReflected(day.status) })
+        .where(atDate(date))
+        .returning();
+      return toDay(firstOrThrow(rows, "Day", date));
+    },
 
-  async recent(limit) {
-    const rows = await db
-      .select()
-      .from(days)
-      .orderBy(desc(days.date))
-      .limit(limit);
-    return rows.map(toDay);
-  },
+    async saveReflection(date, input) {
+      const day = await ensure(date);
 
-  /**
-   * 整月摘要。两个来源要合并：
-   * - days 表：mood / focus / status
-   * - moments 表：按天计数
-   *
-   * 必须合并而不能只查 days，因为 Quick Capture 不调 ensure()，
-   * 存在「有记录但没有 Day 行」的日期，只查 days 会让这些天在日历上消失。
-   */
-  async listMonth(month: MonthKey): Promise<DaySummary[]> {
-    const { start, end } = monthBounds(month);
+      // 反思存的是那一刻的真实想法，不该被日后的自己修饰。
+      // 约束放在这一层而不只是隐藏表单：并发提交或直接调用都会被挡住。
+      if (day.reflectedAt !== null) {
+        throw new Error(`Day ${date} 已经反思过了，不能重写。`);
+      }
 
-    const [dayRows, momentCounts] = await Promise.all([
-      db
+      const at = now();
+      // 一次性提交，三项一起写。全部可空 —— 每个问题都能跳过。
+      const rows = await db
+        .update(days)
+        .set({
+          eveningMood: input.eveningMood ?? null,
+          stayedWithYou: input.stayedWithYou?.trim() || null,
+          learned: input.learned?.trim() || null,
+          reflectedAt: at,
+          status: toReflected(day.status),
+        })
+        .where(atDate(date))
+        .returning();
+      return toDay(firstOrThrow(rows, "Day", date));
+    },
+
+    async dismissCarry(date) {
+      await ensure(date);
+      const rows = await db
+        .update(days)
+        .set({ carryDismissed: true })
+        .where(atDate(date))
+        .returning();
+      return toDay(firstOrThrow(rows, "Day", date));
+    },
+
+    async recent(limit) {
+      const rows = await db
         .select()
         .from(days)
-        .where(and(gte(days.date, start), lte(days.date, end))),
-      db
-        .select({ date: moments.date, n: count() })
-        .from(moments)
-        .where(and(gte(moments.date, start), lte(moments.date, end)))
-        .groupBy(moments.date),
-    ]);
+        .where(eq(days.userId, userId))
+        .orderBy(desc(days.date))
+        .limit(limit);
+      return rows.map(toDay);
+    },
 
-    const byDate = new Map<DayKey, DaySummary>();
+    /**
+     * 整月摘要。两个来源要合并：
+     * - days 表：mood / focus / status
+     * - moments 表：按天计数
+     *
+     * 必须合并而不能只查 days，因为 Quick Capture 不调 ensure()，
+     * 存在「有记录但没有 Day 行」的日期，只查 days 会让这些天在日历上消失。
+     *
+     * 两个查询都要带 userId —— 漏掉 moments 那个，日历上就会显示
+     * 别人在这天记了几条。
+     */
+    async listMonth(month: MonthKey): Promise<DaySummary[]> {
+      const { start, end } = monthBounds(month);
 
-    for (const r of dayRows) {
-      byDate.set(r.date, {
-        date: r.date,
-        mood: r.mood as Day["mood"],
-        status: r.status as Day["status"],
-        momentCount: 0,
-        hasFocus: Boolean(r.focus),
-      });
-    }
+      const [dayRows, momentCounts] = await Promise.all([
+        db
+          .select()
+          .from(days)
+          .where(and(eq(days.userId, userId), gte(days.date, start), lte(days.date, end))),
+        db
+          .select({ date: moments.date, n: count() })
+          .from(moments)
+          .where(
+            and(eq(moments.userId, userId), gte(moments.date, start), lte(moments.date, end)),
+          )
+          .groupBy(moments.date),
+      ]);
 
-    for (const { date, n } of momentCounts) {
-      const existing = byDate.get(date);
-      if (existing) {
-        existing.momentCount = n;
-      } else {
-        byDate.set(date, {
-          date,
-          mood: null,
-          status: null,
-          momentCount: n,
-          hasFocus: false,
+      const byDate = new Map<DayKey, DaySummary>();
+
+      for (const r of dayRows) {
+        byDate.set(r.date, {
+          date: r.date,
+          mood: r.mood as Day["mood"],
+          status: r.status as Day["status"],
+          momentCount: 0,
+          hasFocus: Boolean(r.focus),
         });
       }
-    }
 
-    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-  },
-};
+      for (const { date, n } of momentCounts) {
+        const existing = byDate.get(date);
+        if (existing) {
+          existing.momentCount = n;
+        } else {
+          byDate.set(date, {
+            date,
+            mood: null,
+            status: null,
+            momentCount: n,
+            hasFocus: false,
+          });
+        }
+      }
+
+      return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+    },
+  };
+}

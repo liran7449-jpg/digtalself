@@ -58,7 +58,14 @@ export async function GET(request: Request) {
        * 部署后应确认这里是 cloud。
        */
       storage: isCloudStorage ? "cloud" : "local",
-      auth: !!process.env.AUTH_PASSWORD_HASH,
+      /**
+       * 认证配置是否就绪。
+       *
+       * 密码已经从 AUTH_PASSWORD_HASH 挪进 users 表（多用户改造），
+       * 所以这里检查的是 SESSION_SECRET —— 现在唯一必需的认证环境变量。
+       * 报告旧变量会让「配好了」这个判断彻底失真。
+       */
+      auth: Boolean(process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 32),
       environment: process.env.NODE_ENV || "development",
       /**
        * 时区诊断。TZ 没设时云平台默认 UTC，会导致问候语和日期切换错误。

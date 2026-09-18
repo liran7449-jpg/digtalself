@@ -1,45 +1,91 @@
 /**
- * 测试用的临时库 + 临时媒体目录。
+ * 测试库准备与清理。
  *
  * 隔离分两层：
- * 1. vitest.config.ts 的 setupFiles（src/test/setup-env.ts）在**任何测试模块
- *    被 import 之前**设好两个 env。这一层是必需的，因为 db/client.ts 和
- *    media-repo.ts 都在模块顶层读 env，静态 import 会在 beforeAll 之前就
- *    把路径固定住。
- * 2. useTempDb() 给这个已经连上的库跑迁移，并在开头硬校验隔离是否真的生效。
+ * 1. vitest.config.ts 的 setupFiles（src/test/setup-env.ts）在**任何测试
+ *    模块被 import 之前**把 DATABASE_URL 指向 digitalself_test。这一层是
+ *    必需的，因为 db/client.ts 在模块顶层读 env，import 就会定连接。
+ * 2. useTempDb() 硬校验隔离是否真的生效，然后把库清空建表。
  *
- * 关键：useTempDb 不再另建目录换 env —— 那样会和已建立的连接错开，
- * 导致连接指向的库没有表。它给 setupFiles 已经指定的那个库建表。
- *
- * 这两个坑都踩过，而且都是静默的：
- * - media.test.ts 把图片写进用户真实照片目录
- * - services.test.ts 把测试数据写进用户真实数据库
- * 所以有了 assertIsolated 这道会响的警报。
+ * ⚠️ 守卫检查的变量必须是代码实际使用的变量。
+ * 2026-09-18 之前这里查的是 DIGITAL_SELF_DB（SQLite 时代遗留），
+ * 而 db/client.ts 早已改读 DATABASE_URL。于是守卫全绿通过，测试
+ * 同时连在用户的真实开发库上，写进 19 条 moment。守卫查错了变量
+ * 比没有守卫更危险 —— 它给的是虚假的安全感。
  */
 
-import { readFileSync, mkdirSync, rmSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import Database from "better-sqlite3";
+import { dirname, resolve } from "node:path";
+import postgres from "postgres";
 
 /**
- * 硬守卫：确认进程真的连在临时库上，而不是用户的真实数据。
+ * 测试里的默认用户 id。
+ *
+ * 必须是 'me'：schema 里 11 张表的 user_id 都是 DEFAULT 'me'，
+ * 不显式传 userId 的写入会落到这个 id 上，外键要求它存在。
+ */
+export const TEST_USER_ID = "me";
+
+/** 表顺序 = 外键依赖顺序，清空时倒序（先子后父）。 */
+const TABLES = [
+  "users",
+  "days",
+  "goals",
+  "people",
+  "places",
+  "topics",
+  "media",
+  "moments",
+  "plan_items",
+  "memories",
+  "insights",
+  "growth_evidences",
+  "moment_goals",
+  "moment_people",
+  "moment_places",
+  "moment_topics",
+  "moment_media",
+];
+
+/**
+ * 硬守卫：确认进程真的连在测试库上，而不是用户的真实数据。
+ *
+ * 判据是**库名必须以 _test 结尾**。这条规则的好处是不管地址怎么变
+ * （本地 / CI / 容器），意图都写在库名里，一眼能看出来。
  *
  * 万一以后配置或 import 顺序把隔离弄坏，要让测试**大声失败**，
  * 而不是静默把测试数据写进用户的日记。
  */
 function assertIsolated(): void {
-  const dbPath = process.env.DIGITAL_SELF_DB;
-  const mediaRoot = process.env.DIGITAL_SELF_MEDIA_ROOT;
-  const tmp = resolve(tmpdir());
+  const url = process.env.DATABASE_URL;
 
-  if (!dbPath || !resolve(dbPath).startsWith(tmp)) {
+  if (!url) {
     throw new Error(
-      `测试隔离失效：DIGITAL_SELF_DB = ${dbPath ?? "(未设置)"}，不在临时目录内。\n` +
-        `继续跑会把测试数据写进真实数据库。检查 vitest.config.ts 的 setupFiles。`,
+      "测试隔离失效：DATABASE_URL 未设置。\n" +
+        "应该由 vitest.config.ts 的 setupFiles（src/test/setup-env.ts）设好。",
     );
   }
-  if (!mediaRoot || !resolve(mediaRoot).startsWith(tmp)) {
+
+  let dbName: string;
+  try {
+    dbName = new URL(url).pathname.replace(/^\//, "");
+  } catch {
+    throw new Error(`测试隔离失效：DATABASE_URL 不是合法 URL：${url}`);
+  }
+
+  if (!dbName.endsWith("_test")) {
+    throw new Error(
+      `测试隔离失效：数据库名 "${dbName}" 不以 _test 结尾。\n` +
+        `继续跑会把测试数据写进真实数据库（2026-09-18 就这么丢过一次）。\n` +
+        `DATABASE_URL = ${url.replace(/:[^:@]+@/, ":***@")}\n` +
+        `检查 src/test/setup-env.ts，或设置 TEST_DATABASE_URL 指向 *_test 库。`,
+    );
+  }
+
+  const mediaRoot = process.env.DIGITAL_SELF_MEDIA_ROOT;
+  if (!mediaRoot || !resolve(mediaRoot).startsWith(resolve(tmpdir()))) {
     throw new Error(
       `测试隔离失效：DIGITAL_SELF_MEDIA_ROOT = ${mediaRoot ?? "(未设置)"}，不在临时目录内。\n` +
         `继续跑会把图片写进用户真实照片目录。检查 vitest.config.ts 的 setupFiles。`,
@@ -47,31 +93,85 @@ function assertIsolated(): void {
   }
 }
 
+/** 从连接串里换掉库名，用来连 postgres 维护库去 CREATE DATABASE。 */
+function withDatabase(url: string, dbName: string): string {
+  const u = new URL(url);
+  u.pathname = `/${dbName}`;
+  return u.toString();
+}
+
+let schemaReady = false;
+
 /**
- * 给 setupFiles 已指定的临时库建表。返回该库所在目录，供 dropTempDb 清理。
+ * 准备测试库：不存在就建库，然后应用 migration 建表。
+ *
+ * 建表走 drizzle-kit migrate（跟生产同一套 migration），而不是手写
+ * CREATE TABLE —— 那样两边会漂移，测试就测不到真实结构。
+ * 一个 vitest 进程内只做一次，之后各测试文件只需清空数据。
  */
-export function useTempDb(): string {
-  assertIsolated();
+async function ensureSchema(url: string): Promise<void> {
+  if (schemaReady) return;
 
-  const dbPath = resolve(process.env.DIGITAL_SELF_DB!);
-  const dir = dirname(dbPath);
-  mkdirSync(dir, { recursive: true });
+  const dbName = new URL(url).pathname.replace(/^\//, "");
 
-  // 直接读 migration 文件并应用，绕开 drizzle-kit 在子进程里卡住的问题
-  const db = new Database(dbPath);
-  db.pragma("foreign_keys = ON");
-
-  const migrationDir = join(process.cwd(), "drizzle");
-  const migrationFiles = readdirSync(migrationDir)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
-
-  for (const file of migrationFiles) {
-    db.exec(readFileSync(join(migrationDir, file), "utf8"));
+  // 建库（连维护库 postgres 执行）
+  const admin = postgres(withDatabase(url, "postgres"), { max: 1 });
+  try {
+    const exists = await admin`SELECT 1 FROM pg_database WHERE datname = ${dbName}`;
+    if (exists.length === 0) {
+      await admin.unsafe(`CREATE DATABASE "${dbName}"`);
+    }
+  } finally {
+    await admin.end();
   }
 
-  db.close();
-  return dir;
+  // 建表：和生产共用 drizzle/ 里的 migration
+  execFileSync("npx", ["drizzle-kit", "migrate"], {
+    env: { ...process.env, DATABASE_URL: url },
+    stdio: "pipe",
+  });
+
+  // updated_at 触发器不在 migration 里，靠脚本装（只装有该列的表）
+  execFileSync("npx", ["tsx", "scripts/setup-pg-triggers.ts"], {
+    env: { ...process.env, DATABASE_URL: url },
+    stdio: "pipe",
+  });
+
+  schemaReady = true;
+}
+
+/**
+ * 清空测试库的所有表，返回媒体临时目录供 dropTempDb 清理。
+ *
+ * 名字保留 useTempDb 是为了不动 4 个测试文件的调用点；
+ * 现在的语义是「准备一个干净的测试库」。
+ */
+export async function useTempDb(): Promise<string> {
+  assertIsolated();
+
+  const url = process.env.DATABASE_URL!;
+  await ensureSchema(url);
+
+  const sql = postgres(url, { max: 1 });
+  try {
+    await sql.unsafe(`TRUNCATE TABLE ${[...TABLES].reverse().map((t) => `"${t}"`).join(", ")} CASCADE`);
+    /**
+     * 建出默认用户。
+     *
+     * 11 张表的 user_id 都有 DEFAULT 'me' 且外键指向 users，
+     * 所以清空后必须先有这一行，否则任何 insert 都会违反外键。
+     * 测试里不显式传 userId 的调用（大多数）都落在这个用户名下。
+     */
+    await sql`
+      INSERT INTO users (id, username, name) VALUES (${TEST_USER_ID}, 'testuser', 'Test User')
+    `;
+  } finally {
+    await sql.end();
+  }
+
+  const mediaRoot = process.env.DIGITAL_SELF_MEDIA_ROOT!;
+  mkdirSync(mediaRoot, { recursive: true });
+  return dirname(mediaRoot);
 }
 
 export function dropTempDb(dir: string): void {
@@ -79,5 +179,7 @@ export function dropTempDb(dir: string): void {
   if (!resolve(dir).startsWith(resolve(tmpdir()))) {
     throw new Error(`拒绝删除非临时目录：${dir}`);
   }
-  rmSync(dir, { recursive: true, force: true });
+  if (existsSync(dir)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }

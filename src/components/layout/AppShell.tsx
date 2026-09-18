@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Sparkle } from "@/components/ui/Primitives";
+import { SignOutButton } from "./SignOutButton";
 
 const NAV = [
   { href: "/today", label: "Today" },
@@ -53,17 +54,21 @@ export function AppShell({
             })}
           </nav>
 
-          {/* AI Butler 全局入口。P0 尚未接 AI，先禁用并说明。 */}
-          <button
-            type="button"
-            disabled
-            aria-label="AI Butler（即将上线）"
-            title="AI Butler 即将上线"
-            className="flex size-11 items-center justify-center rounded-soft text-ai
-              opacity-40 disabled:cursor-not-allowed"
-          >
-            <Sparkle className="size-4" />
-          </button>
+          <div className="flex items-center gap-4">
+            <SignOutButton />
+
+            {/* AI Butler 全局入口。P0 尚未接 AI，先禁用并说明。 */}
+            <button
+              type="button"
+              disabled
+              aria-label="AI Butler（即将上线）"
+              title="AI Butler 即将上线"
+              className="flex size-11 items-center justify-center rounded-soft text-ai
+                opacity-40 disabled:cursor-not-allowed"
+            >
+              <Sparkle className="size-4" />
+            </button>
+          </div>
         </div>
       </header>
 

@@ -28,10 +28,43 @@ import type {
   PlanStatus,
 } from "@/domain/enums";
 
+/**
+ * 认证用的用户记录。带 passwordHash，**只允许在服务端认证流程里使用**。
+ *
+ * 跟 User 分开是有意的：User 会被传到 UI / Server Component 的 props，
+ * 一旦哈希混进那条链路就可能出现在 HTML 里。类型分开让它不可能被误传。
+ */
+export interface UserCredentials {
+  id: string;
+  username: string;
+  passwordHash: string | null;
+  mustChangePassword: boolean;
+}
+
 export interface UserRepository {
-  /** 单用户产品，没有则创建空白记录 */
-  getOrCreate(): Promise<User>;
-  update(patch: Partial<Omit<User, "id" | "createdAt">>): Promise<User>;
+  /** 按 id 取，不存在返回 null */
+  findById(id: string): Promise<User | null>;
+  /** 按 id 取，不存在则创建空白记录（需要 username 兜底） */
+  getOrCreate(id: string, username: string): Promise<User>;
+  update(
+    id: string,
+    patch: Partial<Omit<User, "id" | "username" | "createdAt">>,
+  ): Promise<User>;
+
+  // ---- 认证：只在服务端认证流程使用 ----
+  /** 按用户名取认证信息（含哈希）。登录时用。 */
+  findCredentialsByUsername(username: string): Promise<UserCredentials | null>;
+  /** 建号。password 传明文，实现负责哈希。 */
+  create(input: {
+    username: string;
+    password: string;
+    name?: string | null;
+    mustChangePassword?: boolean;
+  }): Promise<User>;
+  /** 改密码。同时清掉 mustChangePassword。 */
+  setPassword(id: string, password: string): Promise<void>;
+  /** 列出全部用户，管理脚本用。 */
+  listAll(): Promise<User[]>;
 }
 
 /**
@@ -242,6 +275,11 @@ export interface PersonRepository {
   list(): Promise<Person[]>;
   /** 查询 Moment 关联的所有 Person */
   listByMoment(momentId: string): Promise<Person[]>;
+  /**
+   * 批量查询多条 Moment 的 Person，按 momentId 分组。
+   * 列表页用这个 —— 逐条调 listByMoment 是 N+1，34 条记录就是 34 次往返。
+   */
+  listByMoments(momentIds: string[]): Promise<Map<string, Person[]>>;
   update(id: string, patch: Partial<Pick<Person, "name" | "notes">>): Promise<Person>;
 }
 
@@ -252,6 +290,11 @@ export interface PlaceRepository {
   list(): Promise<Place[]>;
   /** 查询 Moment 关联的所有 Place */
   listByMoment(momentId: string): Promise<Place[]>;
+  /**
+   * 批量查询多条 Moment 的 Place，按 momentId 分组。
+   * 列表页用这个 —— 逐条调 listByMoment 是 N+1。
+   */
+  listByMoments(momentIds: string[]): Promise<Map<string, Place[]>>;
   update(id: string, patch: Partial<Pick<Place, "name" | "notes">>): Promise<Place>;
 }
 
@@ -262,22 +305,36 @@ export interface TopicRepository {
   list(): Promise<Topic[]>;
   /** 查询 Moment 关联的所有 Topic */
   listByMoment(momentId: string): Promise<Topic[]>;
+  /**
+   * 批量查询多条 Moment 的 Topic，按 momentId 分组。
+   * 列表页用这个 —— 逐条调 listByMoment 是 N+1。
+   */
+  listByMoments(momentIds: string[]): Promise<Map<string, Topic[]>>;
 }
 
 export interface MediaRepository {
   findById(id: string): Promise<Media | null>;
   /** 查询 Moment 关联的所有 Media */
   listByMoment(momentId: string): Promise<Media[]>;
-  /** 上传并存储。返回 Media 记录（含 id 和 storageKey） */
+  /**
+   * 批量查询多条 Moment 的 Media，按 momentId 分组，按 sortOrder 排序。
+   * 列表页用这个 —— 逐条调 listByMoment 是 N+1。
+   */
+  listByMoments(momentIds: string[]): Promise<Map<string, Media[]>>;
+  /**
+   * 上传并存储。返回 Media 记录（含 id 和 storageKey）。
+   *
+   * 没有 userId 入参是有意的：归属由 repo 实例绑定的用户决定。
+   * 让调用方传 userId 就等于让它可以把文件写到别人名下。
+   */
   create(input: {
-    userId: string;
     file: Buffer;
     type: string;
     size: number;
     width?: number;
     height?: number;
   }): Promise<Media>;
-  /** 删除文件和记录 */
+  /** 删除文件和记录。不属于当前用户时抛错。 */
   delete(id: string): Promise<void>;
 }
 
@@ -287,7 +344,13 @@ export interface GrowthEvidenceRepository {
   create(input: Omit<GrowthEvidence, "id" | "createdAt" | "updatedAt">): Promise<GrowthEvidence>;
 }
 
-/** 全量导出。PRD 第 31 节把「用户能看到全部数据」列为 P0。 */
+/**
+ * 全量导出。PRD 第 31 节把「用户能看到全部数据」列为 P0。
+ *
+ * ⚠️ 归属由 repo 实例绑定的 userId 决定，方法不收 userId 参数 ——
+ * 导出是最容易泄露的一条路径，一个漏掉过滤的 exportAll 会把所有人的
+ * 日记打包成一个 JSON 交出去。不给调用方指定用户的机会。
+ */
 export interface ExportRepository {
   exportAll(): Promise<{
     exportedAt: string;

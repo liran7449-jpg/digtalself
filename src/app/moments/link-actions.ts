@@ -1,5 +1,10 @@
 /**
  * Moment 关联管理的 Server Actions。
+ *
+ * 每个 action 第一件事都是 requireUserId() —— Server Action 是公开
+ * 端点，任何人都能构造请求打过来，不能假设调用它的是登录用户。
+ * 拿到 userId 后所有数据访问都经过它，归属由服务端决定，
+ * 不接受客户端传 userId。
  */
 
 "use server";
@@ -12,72 +17,94 @@ import { TopicService } from "@/services/topic-service";
 import { GoalLinkService } from "@/services/goal-link-service";
 import { MemoryService } from "@/services/memory-service";
 import { MediaService } from "@/services/media-service";
-import { repo } from "@/repositories";
+import { repoFor } from "@/repositories";
+import { requireUserId } from "@/lib/session";
 import { db } from "@/db/client";
 import { momentMedia } from "@/db/schema";
 
 export async function linkPerson(momentId: string, personName: string) {
-  await PersonService.linkToMoment(momentId, personName);
+  const userId = await requireUserId();
+  await PersonService.linkToMoment(userId, momentId, personName);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function unlinkPerson(momentId: string, personId: string) {
-  await PersonService.unlinkFromMoment(momentId, personId);
+  const userId = await requireUserId();
+  await PersonService.unlinkFromMoment(userId, momentId, personId);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function linkPlace(momentId: string, placeName: string) {
-  await PlaceService.linkToMoment(momentId, placeName);
+  const userId = await requireUserId();
+  await PlaceService.linkToMoment(userId, momentId, placeName);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function unlinkPlace(momentId: string, placeId: string) {
-  await PlaceService.unlinkFromMoment(momentId, placeId);
+  const userId = await requireUserId();
+  await PlaceService.unlinkFromMoment(userId, momentId, placeId);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function linkTopic(momentId: string, topicName: string) {
-  await TopicService.linkToMoment(momentId, topicName);
+  const userId = await requireUserId();
+  await TopicService.linkToMoment(userId, momentId, topicName);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function unlinkTopic(momentId: string, topicId: string) {
-  await TopicService.unlinkFromMoment(momentId, topicId);
+  const userId = await requireUserId();
+  await TopicService.unlinkFromMoment(userId, momentId, topicId);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function linkGoal(momentId: string, goalId: string) {
-  await GoalLinkService.linkToMoment(momentId, goalId);
+  const userId = await requireUserId();
+  await GoalLinkService.linkToMoment(userId, momentId, goalId);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function unlinkGoal(momentId: string, goalId: string) {
-  await GoalLinkService.unlinkFromMoment(momentId, goalId);
+  const userId = await requireUserId();
+  await GoalLinkService.unlinkFromMoment(userId, momentId, goalId);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function markAsMemory(momentId: string) {
-  const moment = await repo.moments.find(momentId);
+  const userId = await requireUserId();
+  // find 带 userId 过滤，别人的 moment 在这里就是「不存在」
+  const moment = await repoFor(userId).moments.find(momentId);
   if (!moment) throw new Error("Moment not found");
 
-  await MemoryService.markMomentAsMemory(moment);
+  await MemoryService.markMomentAsMemory(userId, moment);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function unmarkAsMemory(momentId: string) {
-  await MemoryService.unmarkMomentAsMemory(momentId);
+  const userId = await requireUserId();
+  await MemoryService.unmarkMomentAsMemory(userId, momentId);
   revalidatePath(`/moments/${momentId}`);
 }
 
 export async function uploadImage(momentId: string, formData: FormData) {
+  const userId = await requireUserId();
+
   const file = formData.get("file") as File;
   if (!file) throw new Error("No file provided");
 
+  /**
+   * 先确认这条 moment 属于当前用户，再上传。
+   * 顺序很重要：反过来的话，往别人的 moment 传图会先把文件写进存储，
+   * 然后才失败，留下一个没人引用的孤儿文件。
+   */
+  const moment = await repoFor(userId).moments.find(momentId);
+  if (!moment) throw new Error("Moment not found");
+
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  // 上传图片
+  // 上传图片。userId 来自 session，不是硬编码的 'me'
   const media = await MediaService.uploadImage({
-    userId: "me", // TODO: 多用户时改为当前登录用户
+    userId,
     file: buffer,
     mimeType: file.type,
   });
@@ -90,19 +117,21 @@ export async function uploadImage(momentId: string, formData: FormData) {
 }
 
 export async function deleteImage(momentId: string, mediaId: string) {
+  const userId = await requireUserId();
+
+  // 先确认 moment 归属，避免拿别人的 momentId 解关联
+  const moment = await repoFor(userId).moments.find(momentId);
+  if (!moment) throw new Error("Moment not found");
+
   // 取消关联
   await db
     .delete(momentMedia)
     .where(
-      and(
-        eq(momentMedia.momentId, momentId),
-        eq(momentMedia.mediaId, mediaId)
-      )
-    )
-    ;
+      and(eq(momentMedia.momentId, momentId), eq(momentMedia.mediaId, mediaId)),
+    );
 
-  // 删除文件
-  await MediaService.delete(mediaId);
+  // 删除文件。不属于该用户时 repo 会抛错
+  await MediaService.delete(userId, mediaId);
 
   revalidatePath(`/moments/${momentId}`);
 }

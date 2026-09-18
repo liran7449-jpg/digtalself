@@ -4,12 +4,11 @@
  * 建议每周运行一次：node scripts/backup-cloud.mjs
  */
 
-import postgres from 'postgres';
 import { writeFileSync } from 'fs';
 import { mkdirSync } from 'fs';
+import { connectCloud } from './cloud-db.mjs';
 
-const CLOUD_DB_URL = process.env.CLOUD_DB_URL || 'postgresql://postgres:FUQtDjndJKLGNVcWByupxCSsnPOKEWIb@tokaido.proxy.rlwy.net:55374/railway';
-const sql = postgres(CLOUD_DB_URL);
+const sql = connectCloud();
 
 console.log('☁️  备份云端生产数据...\n');
 

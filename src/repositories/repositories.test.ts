@@ -3,15 +3,17 @@ import { dropTempDb, useTempDb } from "./test-setup";
 
 // 必须先建临时库再 import repositories，import 顺序有副作用
 let tmpDir: string;
-beforeAll(() => {
-  tmpDir = useTempDb();
+beforeAll(async () => {
+  tmpDir = await useTempDb();
 });
 afterAll(() => {
   dropTempDb(tmpDir);
 });
 
 const load = async () => {
-  const { repo } = await import("./index");
+  const { repoFor } = await import("./index");
+  const { TEST_USER_ID } = await import("./test-setup");
+  const repo = repoFor(TEST_USER_ID);
   const dayKey = await import("@/domain/day-key");
   const transitions = await import("@/domain/transitions");
   return { repo, ...dayKey, ...transitions };
@@ -20,11 +22,50 @@ const load = async () => {
 describe("User", () => {
   it("getOrCreate 幂等，update 生效", async () => {
     const { repo } = await load();
-    const a = await repo.users.getOrCreate();
-    const b = await repo.users.getOrCreate();
+    const a = await repo.users.getOrCreate("me", "ran");
+    const b = await repo.users.getOrCreate("me", "ran");
     expect(a.id).toBe(b.id);
-    const named = await repo.users.update({ name: "Ran" });
+    const named = await repo.users.update("me", { name: "Ran" });
     expect(named.name).toBe("Ran");
+  });
+
+  it("建号：用户名唯一，密码存哈希不存明文", async () => {
+    const { repo } = await load();
+    const created = await repo.users.create({
+      username: "tester",
+      password: "temp-pass-123",
+      mustChangePassword: true,
+    });
+    expect(created.username).toBe("tester");
+    expect(created.mustChangePassword).toBe(true);
+
+    // 明文绝不能落库
+    const creds = await repo.users.findCredentialsByUsername("tester");
+    expect(creds).not.toBeNull();
+    expect(creds!.passwordHash).not.toBe("temp-pass-123");
+    expect(creds!.passwordHash).toMatch(/^\$2[aby]\$/);
+
+    // 用户名唯一
+    await expect(
+      repo.users.create({ username: "tester", password: "another" }),
+    ).rejects.toThrow();
+  });
+
+  it("改密码后 mustChangePassword 自动清掉", async () => {
+    const { repo } = await load();
+    const u = await repo.users.create({
+      username: "pwchange",
+      password: "temp-1",
+      mustChangePassword: true,
+    });
+    const before = await repo.users.findCredentialsByUsername("pwchange");
+    expect(before!.mustChangePassword).toBe(true);
+
+    await repo.users.setPassword(u.id, "brand-new-password");
+
+    const after = await repo.users.findCredentialsByUsername("pwchange");
+    expect(after!.mustChangePassword).toBe(false);
+    expect(after!.passwordHash).not.toBe(before!.passwordHash);
   });
 });
 

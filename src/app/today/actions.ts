@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { repo } from "@/repositories";
+import { getRepo } from "@/repositories";
 import { addDays, toDayKey } from "@/domain/day-key";
 import {
   eveningReflectionSchema,
@@ -23,6 +23,7 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 export async function submitMorningSetup(
   formData: FormData,
 ): Promise<ActionResult> {
+  const repo = await getRepo();
   const raw = {
     mood: (formData.get("mood") as string) || null,
     focus: ((formData.get("focus") as string) || "").trim() || null,
@@ -54,6 +55,7 @@ export async function submitMorningSetup(
 
 /** Quick Capture。PRD 第 10 节：最低摩擦，只有文字是必需的。 */
 export async function captureMoment(formData: FormData): Promise<ActionResult> {
+  const repo = await getRepo();
   const parsed = quickCaptureSchema.safeParse({
     content: formData.get("content"),
     type: (formData.get("type") as string) || "thought",
@@ -73,6 +75,7 @@ export async function captureMoment(formData: FormData): Promise<ActionResult> {
 }
 
 export async function deleteMoment(id: string): Promise<ActionResult> {
+  const repo = await getRepo();
   if (!id) return { ok: false, error: "缺少 id。" };
   // 硬删除，PRD 第 31 节隐私要求
   await repo.moments.remove(id);
@@ -114,6 +117,7 @@ export async function updateDayState(
   field: "mood" | "focus",
   value: string | null,
 ): Promise<ActionResult> {
+  const repo = await getRepo();
   const parsed = stateFieldSchema.safeParse({
     field,
     value: value === "" ? null : value,
@@ -133,6 +137,7 @@ export async function setPlanStatus(
   id: string,
   status: PlanStatus,
 ): Promise<ActionResult> {
+  const repo = await getRepo();
   try {
     await repo.plans.setStatus(id, status);
     revalidatePath("/today");
@@ -149,6 +154,7 @@ export async function updatePlanItem(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
+  const repo = await getRepo();
   const title = ((formData.get("title") as string) || "").trim();
   if (!title) return { ok: false, error: "标题不能为空。" };
   if (title.length > 200) return { ok: false, error: "标题太长了。" };
@@ -167,6 +173,7 @@ export async function setPlanPriority(
   id: string,
   priority: PlanPriority,
 ): Promise<ActionResult> {
+  const repo = await getRepo();
   if (!PLAN_PRIORITY_VALUES.includes(priority)) {
     return { ok: false, error: "优先级不合法。" };
   }
@@ -176,6 +183,7 @@ export async function setPlanPriority(
 }
 
 export async function deletePlanItem(id: string): Promise<ActionResult> {
+  const repo = await getRepo();
   if (!id) return { ok: false, error: "缺少 id。" };
   await repo.plans.remove(id);
   revalidatePath("/today");
@@ -183,6 +191,7 @@ export async function deletePlanItem(id: string): Promise<ActionResult> {
 }
 
 export async function addPlanItem(formData: FormData): Promise<ActionResult> {
+  const repo = await getRepo();
   const title = ((formData.get("title") as string) || "").trim();
   if (!title) return { ok: false, error: "写下要做的事。" };
 
@@ -214,6 +223,7 @@ export async function addPlanItem(formData: FormData): Promise<ActionResult> {
 export async function carryUnfinishedToTomorrow(): Promise<
   ActionResult & { count?: number }
 > {
+  const repo = await getRepo();
   const tomorrow = addDays(toDayKey(), 1);
   const res = await repo.plans.carryOverUnfinished(tomorrow);
   revalidatePath("/today");
@@ -227,6 +237,7 @@ export async function carryUnfinishedToTomorrow(): Promise<
  * 否则自动顺延会悄悄推翻这个决定。
  */
 export async function declineCarryToTomorrow(): Promise<ActionResult> {
+  const repo = await getRepo();
   const tomorrow = addDays(toDayKey(), 1);
   await repo.days.dismissCarry(tomorrow);
   revalidatePath("/today");
@@ -234,6 +245,7 @@ export async function declineCarryToTomorrow(): Promise<ActionResult> {
 }
 
 export async function endMyDay(): Promise<ActionResult> {
+  const repo = await getRepo();
   await repo.days.markReadyToReflect(toDayKey());
   revalidatePath("/today");
   return { ok: true };
@@ -246,6 +258,7 @@ export async function endMyDay(): Promise<ActionResult> {
 export async function submitReflection(
   formData: FormData,
 ): Promise<ActionResult> {
+  const repo = await getRepo();
   const parsed = eveningReflectionSchema.safeParse({
     eveningMood: (formData.get("eveningMood") as string) || null,
     stayedWithYou: ((formData.get("stayedWithYou") as string) || "").trim() || null,

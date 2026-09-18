@@ -5,7 +5,7 @@ import { Label, Rule, Sparkle } from "@/components/ui/Primitives";
 import { MomentTime } from "@/components/moment/MomentTime";
 import { priorityBar, priorityText } from "@/components/plan/priority-style";
 import { ReflectionCard } from "@/components/day/ReflectionCard";
-import { repo } from "@/repositories";
+import { getRepo } from "@/repositories";
 import {
   addDays,
   formatDayHeading,
@@ -85,6 +85,7 @@ export default async function DayPage({
 }: {
   params: Promise<{ date: string }>;
 }) {
+  const repo = await getRepo();
   const { date: raw } = await params;
   if (!isDayKey(raw)) notFound();
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { repo } from "@/repositories";
+import { getRepo } from "@/repositories";
 import { MOMENT_TYPE_VALUES, MOOD_VALUES } from "@/domain/enums";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -21,6 +21,7 @@ export async function updateMoment(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
+  const repo = await getRepo();
   const parsed = editSchema.safeParse({
     content: formData.get("content"),
     type: (formData.get("type") as string) || "thought",
@@ -50,6 +51,7 @@ export async function updateMoment(
 
 /** 硬删除后回列表页 —— 详情页的目标已经不存在了 */
 export async function deleteMomentAndReturn(id: string): Promise<void> {
+  const repo = await getRepo();
   await repo.moments.remove(id);
   revalidatePath("/moments");
   revalidatePath("/today");
