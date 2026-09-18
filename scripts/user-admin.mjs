@@ -7,11 +7,15 @@
  *
  * 用法：
  *   node scripts/user-admin.mjs list
- *   node scripts/user-admin.mjs create <用户名> [显示名]
+ *   node scripts/user-admin.mjs create <用户名> [显示名] [生日 MM-DD] [初始密码] [--keep-password]
+ *   node scripts/user-admin.mjs set-birthday <用户名> <生日 MM-DD>
  *   node scripts/user-admin.mjs set-password <用户名>
+ *   node scripts/user-admin.mjs set-password-plain <用户名> <密码>
  *
- * create 会生成随机临时密码并打印，用户首次登录必须改掉。
- * 目标库由 DATABASE_URL 决定；操作生产库时传 CLOUD_DB_URL 那个值。
+ * create 默认生成随机临时密码并要求首次登录改掉。
+ * 传了初始密码就用那个；加 --keep-password 则连改密要求也去掉。
+ *
+ * 目标库由 DATABASE_URL 决定；操作生产库时传 Railway 的连接串。
  */
 
 import bcrypt from "bcryptjs";
@@ -104,22 +108,26 @@ async function create(rawUsername, name, rawBirthday, rawPassword) {
   /**
    * 允许指定初始密码。
    *
-   * 默认还是随机临时密码 —— 那是更安全的做法。但有时需要一个
-   * 能口头告诉对方的简单密码，此时仍然标记 must_change_password，
-   * 对方首次登录必须改掉。
+   * 默认是随机临时密码 + 强制改密 —— 那是更安全的做法，
+   * 改完之后连管理员都不知道对方密码。
+   *
+   * --keep-password 关掉强制改密：适合「这个密码就是给她长期用的」
+   * 的场合。代价是你知道她的密码，所以只在你和对方之间本来就没有
+   * 这层隔阂时用。
    */
   const password = rawPassword || tempPassword();
   if (rawPassword && rawPassword.length < 4) {
     console.error("❌ 初始密码至少 4 位");
     process.exit(1);
   }
+  const mustChange = !process.argv.includes("--keep-password");
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const id = ulid();
 
   await sql`
     INSERT INTO users (id, username, name, birthday, password_hash, must_change_password)
-    VALUES (${id}, ${username}, ${name ?? null}, ${birthday}, ${passwordHash}, true)
+    VALUES (${id}, ${username}, ${name ?? null}, ${birthday}, ${passwordHash}, ${mustChange})
   `;
 
   console.log(`\n✅ 已建号\n`);
@@ -127,8 +135,13 @@ async function create(rawUsername, name, rawBirthday, rawPassword) {
   console.log(`   初始密码：${password}${rawPassword ? "（你指定的）" : "（随机生成）"}`);
   if (birthday) console.log(`   生日：${birthday}`);
   console.log(`   id：${id}`);
-  console.log(`\n   把用户名和初始密码给对方。首次登录会强制改密码，`);
-  console.log(`   改完之后你就不知道对方密码了。\n`);
+  if (mustChange) {
+    console.log(`\n   把用户名和初始密码给对方。首次登录会强制改密码，`);
+    console.log(`   改完之后你就不知道对方密码了。\n`);
+  } else {
+    console.log(`\n   把用户名和密码给对方，直接就能用（不要求改密）。`);
+    console.log(`   她随时可以自己在 /change-password 改。\n`);
+  }
 }
 
 /** 单独设置生日，给已存在的账号用。 */
@@ -195,7 +208,7 @@ async function setPasswordPlain(rawUsername, password) {
   console.log(`\n✅ 已设置 ${username} 的密码（不要求改密）\n`);
 }
 
-const [cmd, ...args] = process.argv.slice(2);
+const [cmd, ...args] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 
 try {
   switch (cmd) {
@@ -217,7 +230,7 @@ try {
     default:
       console.log("用法：");
       console.log("  node scripts/user-admin.mjs list");
-      console.log("  node scripts/user-admin.mjs create <用户名> [显示名] [生日 MM-DD] [初始密码]");
+      console.log("  node scripts/user-admin.mjs create <用户名> [显示名] [生日 MM-DD] [初始密码] [--keep-password]");
       console.log("  node scripts/user-admin.mjs set-birthday <用户名> <生日 MM-DD>");
       console.log("  node scripts/user-admin.mjs set-password <用户名>");
       console.log("  node scripts/user-admin.mjs set-password-plain <用户名> <密码>");
