@@ -8,13 +8,24 @@ import { MOMENT_TYPE_VALUES, MOOD_VALUES } from "@/domain/enums";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * 只包含编辑表单真正提供输入的字段。
+ *
+ * 曾经这里还有 place 和 isMemory —— 表单上没有对应输入框，
+ * formData.get() 永远拿不到值，于是每次保存都写入 place=null、
+ * isMemory=false，静默清掉已有数据（「值得记住」徽章会因为改一个
+ * 错别字而消失）。不提供输入的字段就不该出现在 patch 里。
+ *
+ * isMemory 的正确入口是 markAsMemory / unmarkAsMemory ——
+ * 那条路径同时维护 memories 表，这里单写标记位会让两边对不上。
+ *
+ * whyItMatters 同理：编辑页已去掉这个输入框，所以也不在 patch 里，
+ * 已有的值原样保留（feed 卡片和日视图仍会展示）。
+ */
 const editSchema = z.object({
   content: z.string().trim().min(1, "内容不能为空").max(20000),
   type: z.enum(MOMENT_TYPE_VALUES),
   mood: z.enum(MOOD_VALUES).nullable(),
-  place: z.string().trim().max(160).nullable(),
-  whyItMatters: z.string().trim().max(4000).nullable(),
-  isMemory: z.boolean(),
 });
 
 export async function updateMoment(
@@ -26,10 +37,6 @@ export async function updateMoment(
     content: formData.get("content"),
     type: (formData.get("type") as string) || "thought",
     mood: (formData.get("mood") as string) || null,
-    place: ((formData.get("place") as string) || "").trim() || null,
-    whyItMatters:
-      ((formData.get("whyItMatters") as string) || "").trim() || null,
-    isMemory: formData.get("isMemory") === "on",
   });
 
   if (!parsed.success) {
