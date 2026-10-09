@@ -65,7 +65,7 @@ export const GOAL_STATUS_VALUES = [
   "draft",
   "active",
   "paused",
-  "completed",
+  "achieved",
   "abandoned",
 ] as const;
 export type GoalStatus = (typeof GOAL_STATUS_VALUES)[number];

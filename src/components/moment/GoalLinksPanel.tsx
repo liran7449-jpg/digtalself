@@ -1,13 +1,13 @@
 /**
  * GoalLinksPanel: Moment 关联的 Goals 管理面板。
  *
- * Goals 不能随时创建（需要在 Goals 页面管理），
- * 这里只能从已有 Goals 中选择关联。
+ * 交互方式：🎯 按钮 + Popover + 多选
+ * 已关联的 Goals 显示为标签（类似 Person / Place）
  */
 
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { Label } from "@/components/ui/Primitives";
 import { Button } from "@/components/ui/Button";
 import type { Goal } from "@/domain/models";
@@ -27,33 +27,71 @@ export function GoalLinksPanel({
   onLink,
   onUnlink,
 }: GoalLinksPanelProps) {
-  const [selecting, setSelecting] = useState(false);
-  const [selectedGoalId, setSelectedGoalId] = useState("");
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   const linkedIds = new Set(linked.map((g) => g.id));
-  const unlinkedGoals = available.filter((g) => !linkedIds.has(g.id));
 
-  const handleLink = () => {
-    if (!selectedGoalId) return;
+  // 打开 Popover 时同步当前已关联状态
+  const handleOpenPopover = () => {
+    setSelectedIds(linked.map((g) => g.id));
+    setPopoverOpen(true);
+  };
 
+  // 点击外部关闭
+  useEffect(() => {
+    if (!popoverOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setPopoverOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [popoverOpen]);
+
+  const handleToggleGoal = (goalId: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(goalId)
+        ? prev.filter((id) => id !== goalId)
+        : [...prev, goalId]
+    );
+  };
+
+  const handleConfirm = () => {
     startTransition(async () => {
-      await onLink(momentId, selectedGoalId);
-      setSelectedGoalId("");
-      setSelecting(false);
+      const currentIds = new Set(linked.map((g) => g.id));
+      const newSelectedIds = new Set(selectedIds);
+
+      // 需要新增的关联
+      const toLink = selectedIds.filter((id) => !currentIds.has(id));
+      // 需要删除的关联
+      const toUnlink = linked.filter((g) => !newSelectedIds.has(g.id)).map((g) => g.id);
+
+      await Promise.all([
+        ...toLink.map((id) => onLink(momentId, id)),
+        ...toUnlink.map((id) => onUnlink(momentId, id)),
+      ]);
+
+      setPopoverOpen(false);
     });
   };
 
   return (
     <div>
       <Label>Goals</Label>
+
+      {/* 已关联的 Goals */}
       {linked.length > 0 && (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-3 flex flex-wrap gap-2">
           {linked.map((goal) => (
             <li
               key={goal.id}
-              className="flex items-start justify-between gap-3 rounded-soft bg-paper-sunken
-                px-3 py-2 text-small"
+              className="flex items-center gap-2 rounded-full bg-paper-sunken px-3 py-1.5 text-small"
             >
               <span className="text-ink">{goal.title}</span>
               <button
@@ -73,48 +111,58 @@ export function GoalLinksPanel({
         </ul>
       )}
 
-      {selecting ? (
-        <div className="mt-3 space-y-2">
-          <select
-            value={selectedGoalId}
-            onChange={(e) => setSelectedGoalId(e.target.value)}
-            className="block w-full min-h-10 rounded-soft border border-line bg-paper-sunken
-              px-3 text-small text-ink focus:border-brand focus:outline-none"
-          >
-            <option value="">选择目标...</option>
-            {unlinkedGoals.map((goal) => (
-              <option key={goal.id} value={goal.id}>
-                {goal.title}
-              </option>
-            ))}
-          </select>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleLink} disabled={pending || !selectedGoalId}>
-              关联
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setSelecting(false);
-                setSelectedGoalId("");
-              }}
-            >
-              取消
-            </Button>
-          </div>
-        </div>
-      ) : (
+      {/* 🎯 目标 按钮 + Popover */}
+      <div className="relative mt-3">
         <button
-          onClick={() => setSelecting(true)}
-          disabled={unlinkedGoals.length === 0}
-          className="mt-3 text-small text-ink-soft underline decoration-line-strong
+          onClick={handleOpenPopover}
+          disabled={available.length === 0}
+          className="text-small text-ink-soft underline decoration-line-strong
             underline-offset-2 hover:text-brand transition-colors disabled:opacity-50
             disabled:cursor-not-allowed"
         >
-          {unlinkedGoals.length > 0 ? "+ 关联目标" : "（无可关联的目标）"}
+          {available.length > 0 ? "🎯 关联目标" : "（无可关联的目标）"}
         </button>
-      )}
+
+        {popoverOpen && (
+          <div
+            ref={popoverRef}
+            className="absolute left-0 top-full z-10 mt-2 w-80 rounded-card border border-line
+              bg-paper-raised p-4 shadow-lg"
+          >
+            <div className="mb-3 text-small font-medium text-ink">选择目标</div>
+            <div className="max-h-60 space-y-2 overflow-y-auto">
+              {available.map((goal) => (
+                <label
+                  key={goal.id}
+                  className="flex cursor-pointer items-center gap-3 rounded-soft
+                    border border-line bg-paper-sunken px-3 py-2
+                    transition-colors hover:border-line-strong"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(goal.id)}
+                    onChange={() => handleToggleGoal(goal.id)}
+                    className="h-4 w-4 cursor-pointer accent-brand"
+                  />
+                  <span className="flex-1 text-small text-ink">{goal.title}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <Button size="sm" onClick={handleConfirm} disabled={pending}>
+                完成
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setPopoverOpen(false)}
+              >
+                取消
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

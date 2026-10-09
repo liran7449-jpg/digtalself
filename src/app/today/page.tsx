@@ -52,9 +52,10 @@ export default async function TodayPage() {
     );
   }
 
-  const [plans, moments] = await Promise.all([
+  const [plans, moments, activeGoals] = await Promise.all([
     repo.plans.listByDate(date),
     repo.moments.listByDate(date),
+    repo.goals.listActive(),
   ]);
 
   /**
@@ -123,7 +124,7 @@ export default async function TodayPage() {
 
         <div className="space-y-10">
           {/* 输入条常驻顶部：写完的内容直接落到下面流的顶部，视线不用来回跳 */}
-          <MomentComposerWrapper />
+          <MomentComposerWrapper activeGoals={activeGoals} />
 
           <MomentList moments={momentsWithRelations} />
         </div>
