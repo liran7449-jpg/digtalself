@@ -178,6 +178,17 @@ export const goalSchema = z.object({
 });
 export type Goal = z.infer<typeof goalSchema>;
 
+export const milestoneSchema = z.object({
+  id,
+  goalId: id,
+  title: z.string().min(1).max(200),
+  description: z.string().max(2000).nullable(),
+  date: dayKey,
+  createdAt: ts,
+  updatedAt: ts,
+});
+export type Milestone = z.infer<typeof milestoneSchema>;
+
 // ---------------------------------------------------------------- Memory
 export const memorySchema = z.object({
   id,

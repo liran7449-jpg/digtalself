@@ -18,27 +18,32 @@ import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Primitives";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
+import type { Goal } from "@/domain/models";
 
 interface MomentComposerProps {
+  activeGoals?: Goal[];
   onSubmit: (data: {
     content: string;
     images: File[];
     people: string[];
     places: string[];
     topics: string[];
+    goalIds: string[];
   }) => Promise<{ ok: boolean; error?: string }>;
 }
 
-export function MomentComposer({ onSubmit }: MomentComposerProps) {
+export function MomentComposer({ activeGoals = [], onSubmit }: MomentComposerProps) {
   const [content, setContent] = useState("");
   const [images, setImages] = useState<File[]>([]);
   const [people, setPeople] = useState<string[]>([]);
   const [places, setPlaces] = useState<string[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
+  const [goalIds, setGoalIds] = useState<string[]>([]);
 
   const [addingPerson, setAddingPerson] = useState(false);
   const [addingPlace, setAddingPlace] = useState(false);
   const [addingTopic, setAddingTopic] = useState(false);
+  const [selectingGoals, setSelectingGoals] = useState(false);
 
   const [personInput, setPersonInput] = useState("");
   const [placeInput, setPlaceInput] = useState("");
@@ -113,6 +118,7 @@ export function MomentComposer({ onSubmit }: MomentComposerProps) {
     setPeople([]);
     setPlaces([]);
     setTopics([]);
+    setGoalIds([]);
     setError(null);
   };
 
@@ -135,6 +141,7 @@ export function MomentComposer({ onSubmit }: MomentComposerProps) {
         people,
         places,
         topics,
+        goalIds,
       });
 
       if (res.ok) {
@@ -261,6 +268,26 @@ export function MomentComposer({ onSubmit }: MomentComposerProps) {
             </button>
           </span>
         ))}
+
+        {goalIds.map((id) => {
+          const goal = activeGoals.find((g) => g.id === id);
+          return goal ? (
+            <span
+              key={id}
+              className="flex items-center gap-1.5 rounded-full bg-paper-sunken px-2.5 py-1
+                text-small text-ink"
+            >
+              <span>🎯 {goal.title}</span>
+              <button
+                onClick={() => setGoalIds((prev) => prev.filter((x) => x !== id))}
+                className="text-ink-faint hover:text-danger"
+                aria-label={`移除目标 ${goal.title}`}
+              >
+                ×
+              </button>
+            </span>
+          ) : null;
+        })}
       </div>
 
       {error && (
@@ -390,6 +417,47 @@ export function MomentComposer({ onSubmit }: MomentComposerProps) {
           >
             # 话题
           </button>
+        )}
+
+        {/* Goal 选择 */}
+        {activeGoals.length > 0 && (
+          selectingGoals ? (
+            <div className="flex items-center gap-2">
+              <select
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id && !goalIds.includes(id)) {
+                    setGoalIds((prev) => [...prev, id]);
+                  }
+                  e.target.value = "";
+                }}
+                className="rounded-soft border border-line bg-paper-sunken px-2 py-1
+                  text-small text-ink focus:border-brand focus:outline-none"
+              >
+                <option value="">选择目标...</option>
+                {activeGoals.filter((g) => !goalIds.includes(g.id)).map((goal) => (
+                  <option key={goal.id} value={goal.id}>
+                    {goal.title}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setSelectingGoals(false)}
+                className="text-small text-ink-faint"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSelectingGoals(true)}
+              className="flex items-center gap-1.5 text-small text-ink-soft hover:text-brand
+                transition-colors"
+            >
+              🎯 目标
+            </button>
+          )
         )}
 
         <span className="text-small text-ink-muted">⌘ + Enter 快速保存</span>

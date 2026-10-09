@@ -12,9 +12,17 @@
 
 import { repoFor } from "@/repositories";
 import { db } from "@/db/client";
-import { momentGoals, goals } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { momentGoals, goals, moments } from "@/db/schema";
+import { and, count, desc, eq } from "drizzle-orm";
 import type { Goal } from "@/domain/models";
+
+/** Goal 详情右栏需要的 Moment 摘要。只取展示用的列，不搬整行。 */
+export type GoalEvidence = {
+  id: string;
+  content: string;
+  date: string;
+  occurredAt: Date;
+};
 
 /** 两端都必须属于这个用户。 */
 async function assertOwnsBoth(
@@ -70,5 +78,56 @@ export const GoalLinkService = {
       .where(and(eq(momentGoals.momentId, momentId), eq(goals.userId, userId)));
 
     return rows.map((r) => r.goals as Goal);
+  },
+
+  /** 按 Goal 反查关联的 Moments */
+  async listByGoal(userId: string, goalId: string): Promise<string[]> {
+    const rows = await db
+      .select({ momentId: momentGoals.momentId })
+      .from(momentGoals)
+      .innerJoin(goals, eq(momentGoals.goalId, goals.id))
+      .where(and(eq(momentGoals.goalId, goalId), eq(goals.userId, userId)));
+
+    return rows.map((r) => r.momentId);
+  },
+
+  /**
+   * 所有目标的证据数，一次 group by。
+   * 左栏每个目标都要显示数量，逐个查就是 N+1。
+   */
+  async countByGoals(userId: string): Promise<Map<string, number>> {
+    const rows = await db
+      .select({ goalId: momentGoals.goalId, n: count() })
+      .from(momentGoals)
+      .innerJoin(goals, eq(momentGoals.goalId, goals.id))
+      .where(eq(goals.userId, userId))
+      .groupBy(momentGoals.goalId);
+
+    return new Map(rows.map((r) => [r.goalId, Number(r.n)]));
+  },
+
+  /**
+   * 某个目标关联的 Moment 摘要，最新在前。
+   * 两端都按 userId 过滤：goal 属于自己，moment 也属于自己。
+   */
+  async listEvidence(userId: string, goalId: string): Promise<GoalEvidence[]> {
+    return db
+      .select({
+        id: moments.id,
+        content: moments.content,
+        date: moments.date,
+        occurredAt: moments.occurredAt,
+      })
+      .from(momentGoals)
+      .innerJoin(goals, eq(momentGoals.goalId, goals.id))
+      .innerJoin(moments, eq(momentGoals.momentId, moments.id))
+      .where(
+        and(
+          eq(momentGoals.goalId, goalId),
+          eq(goals.userId, userId),
+          eq(moments.userId, userId),
+        ),
+      )
+      .orderBy(desc(moments.occurredAt));
   },
 };

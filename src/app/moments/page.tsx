@@ -153,8 +153,14 @@ export default async function MomentsPage({
 
           {hasMore && (
             <div className="mt-16 flex justify-start">
+              {/*
+                scroll={false}：Next 跳转默认滚回顶部，翻到底再点会被甩回最上面。
+                不滚动时已有的记录不重新挂载，更早的直接接在下面；
+                show=N 仍留在地址里，刷新或从详情返回不丢已加载的数量。
+              */}
               <Link
                 href={`/moments?show=${limit + PAGE_SIZE}&cal=${calMonth}`}
+                scroll={false}
                 className="inline-flex min-h-11 items-center rounded-soft border border-line-strong px-5
                   text-small text-ink transition-colors duration-[var(--duration-quick)]
                   hover:border-ink-muted hover:bg-paper-raised"

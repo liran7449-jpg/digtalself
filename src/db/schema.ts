@@ -403,3 +403,29 @@ export const momentMedia = pgTable(
     pk: primaryKey({ columns: [t.momentId, t.mediaId] }),
   }),
 );
+
+/**
+ * Milestones: Goal 生命周期中的重要阶段
+ *
+ * Milestone 与 Evidence 不同：
+ * - Evidence 是一个真实事件（Moment）
+ * - Milestone 是一组事件累积后，代表一个阶段变化
+ *
+ * 例如："第一次完整弹完一首歌" 是一个 Milestone
+ * V1 只建表和基础查询，UI 里只显示数量，不做复杂生成逻辑
+ */
+export const milestones = pgTable("milestones", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .default("me")
+    .references(() => users.id, { onDelete: "cascade" }),
+  goalId: text("goal_id")
+    .notNull()
+    .references(() => goals.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  date: text("date").notNull(), // YYYY-MM-DD
+  createdAt,
+  updatedAt,
+});

@@ -37,9 +37,9 @@ export const MOMENT_TRANSITIONS: Graph<MomentStatus> = {
 
 export const GOAL_TRANSITIONS: Graph<GoalStatus> = {
   draft: ["active", "abandoned"],
-  active: ["paused", "completed", "abandoned"],
+  active: ["paused", "achieved", "abandoned"],
   paused: ["active", "abandoned"],
-  completed: ["active"], // 目标可以重新开启
+  achieved: ["active"], // 目标可以重新开启
   abandoned: ["active"],
 };
 

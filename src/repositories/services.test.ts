@@ -7,6 +7,7 @@ import { PersonService } from "@/services/person-service";
 import { PlaceService } from "@/services/place-service";
 import { TopicService } from "@/services/topic-service";
 import { GoalLinkService } from "@/services/goal-link-service";
+import { GoalService } from "@/services/goal-service";
 import { MemoryService } from "@/services/memory-service";
 import { repoFor } from "@/repositories";
 import { useTempDb, dropTempDb, TEST_USER_ID } from "./test-setup";
@@ -86,6 +87,27 @@ describe("Service 层", () => {
     const linked = await GoalLinkService.listByMoment(U, moment.id);
     expect(linked).toHaveLength(1);
     expect(linked[0].title).toBe("学会 Next.js");
+  });
+
+  it("Goal 编辑与删除：删除后关联消失，Moment 保留", async () => {
+    const service = new GoalService(repo.goals, async () => [], async () => []);
+    const goal = await service.create("学吉他");
+
+    const renamed = await service.update(goal.id, { title: "学会弹吉他" });
+    expect(renamed.title).toBe("学会弹吉他");
+    expect(renamed.status).toBe("active");
+
+    const moment = await repo.moments.capture({ content: "上了第一节吉他课", type: "thought" });
+    await GoalLinkService.linkToMoment(U, moment.id, goal.id);
+    expect((await GoalLinkService.countByGoals(U)).get(goal.id)).toBe(1);
+    expect(await GoalLinkService.listEvidence(U, goal.id)).toHaveLength(1);
+
+    await service.remove(goal.id);
+
+    expect(await repo.goals.find(goal.id)).toBeNull();
+    expect(await repo.moments.find(moment.id)).not.toBeNull();
+    expect(await GoalLinkService.listByMoment(U, moment.id)).toHaveLength(0);
+    expect((await GoalLinkService.countByGoals(U)).has(goal.id)).toBe(false);
   });
 
   it("MemoryService: markMomentAsMemory 创建 Memory 记录", async () => {

@@ -53,8 +53,10 @@ export function MonthCalendar({
         <h2 className="label-caps text-ink-faint">{formatMonthLong(month)}</h2>
 
         <div className="flex items-center gap-1">
+          {/* 切月份只换日历内容，不该把左边的时间流滚回顶部 */}
           <Link
             href={monthHref(addMonths(month, -1))}
+            scroll={false}
             aria-label="上一个月"
             className="flex size-11 items-center justify-center rounded-soft text-ink-muted
               transition-colors duration-[var(--duration-quick)]
@@ -66,6 +68,7 @@ export function MonthCalendar({
           {canGoNext ? (
             <Link
               href={monthHref(addMonths(month, 1))}
+              scroll={false}
               aria-label="下一个月"
               className="flex size-11 items-center justify-center rounded-soft text-ink-muted
                 transition-colors duration-[var(--duration-quick)]
