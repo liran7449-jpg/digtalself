@@ -12,8 +12,8 @@
 
 import { repoFor } from "@/repositories";
 import { db } from "@/db/client";
-import { momentGoals, goals, moments } from "@/db/schema";
-import { and, count, desc, eq } from "drizzle-orm";
+import { momentGoals, goals, moments, media } from "@/db/schema";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import type { Goal } from "@/domain/models";
 
 /** Goal 详情右栏需要的 Moment 摘要。只取展示用的列，不搬整行。 */
@@ -112,7 +112,7 @@ export const GoalLinkService = {
    * 两端都按 userId 过滤：goal 属于自己，moment 也属于自己。
    */
   async listEvidence(userId: string, goalId: string): Promise<GoalEvidence[]> {
-    return db
+    const rows = await db
       .select({
         id: moments.id,
         content: moments.content,
@@ -131,5 +131,31 @@ export const GoalLinkService = {
         ),
       )
       .orderBy(desc(moments.occurredAt));
+
+    // 对于有图片的 moment，从 storage_key 反查 media_id
+    const result = await Promise.all(
+      rows.map(async (row) => {
+        if (!row.mediaPaths || row.mediaPaths.length === 0) {
+          return { ...row, mediaPaths: [] };
+        }
+
+        // 根据 storage_key 查找对应的 media_id
+        const mediaRecords = await db
+          .select({ id: media.id, storageKey: media.storageKey })
+          .from(media)
+          .where(
+            and(
+              eq(media.userId, userId),
+              sql`${media.storageKey} = ANY(${row.mediaPaths})`
+            )
+          );
+
+        // 用 media_id 替换 storage_key
+        const mediaIds = mediaRecords.map(m => m.id);
+        return { ...row, mediaPaths: mediaIds };
+      })
+    );
+
+    return result;
   },
 };
