@@ -12,7 +12,7 @@
 
 import { repoFor } from "@/repositories";
 import { db } from "@/db/client";
-import { momentGoals, goals, moments } from "@/db/schema";
+import { momentGoals, goals, moments, media, momentMedia } from "@/db/schema";
 import { and, count, desc, eq } from "drizzle-orm";
 import type { Goal } from "@/domain/models";
 
@@ -112,7 +112,7 @@ export const GoalLinkService = {
    * 两端都按 userId 过滤：goal 属于自己，moment 也属于自己。
    */
   async listEvidence(userId: string, goalId: string): Promise<GoalEvidence[]> {
-    return db
+    const rows = await db
       .select({
         id: moments.id,
         content: moments.content,
@@ -131,5 +131,21 @@ export const GoalLinkService = {
         ),
       )
       .orderBy(desc(moments.occurredAt));
+
+    // 对于每个 moment，查询关联的 media IDs（通过 moment_media 表）
+    const result = await Promise.all(
+      rows.map(async (row) => {
+        const mediaRecords = await db
+          .select({ id: media.id })
+          .from(momentMedia)
+          .innerJoin(media, eq(momentMedia.mediaId, media.id))
+          .where(eq(momentMedia.momentId, row.id));
+
+        const mediaIds = mediaRecords.map(m => m.id);
+        return { ...row, mediaPaths: mediaIds };
+      })
+    );
+
+    return result;
   },
 };
