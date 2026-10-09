@@ -22,6 +22,7 @@ export type GoalEvidence = {
   content: string;
   date: string;
   occurredAt: Date;
+  mediaPaths: string[];
 };
 
 /** 两端都必须属于这个用户。 */
@@ -117,6 +118,7 @@ export const GoalLinkService = {
         content: moments.content,
         date: moments.date,
         occurredAt: moments.occurredAt,
+        mediaPaths: moments.mediaPaths,
       })
       .from(momentGoals)
       .innerJoin(goals, eq(momentGoals.goalId, goals.id))

@@ -50,6 +50,8 @@ export const userSchema = z.object({
     .nullable(),
   /** 生日彩蛋里多显示的一句话，管理员写入。 */
   birthdayNote: z.string().max(280).nullable(),
+  /** 用户看过的最后一个版本号，用于显示更新公告。 */
+  lastSeenVersion: z.string().max(20).nullable(),
   avatarUrl: z.string().url().nullable(),
   bio: z.string().max(2000).nullable(),
   occupation: z.string().max(120).nullable(),

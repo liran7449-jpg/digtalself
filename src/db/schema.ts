@@ -72,6 +72,11 @@ export const users = pgTable("users", {
   bio: text("bio"),
   occupation: text("occupation"),
   location: text("location"),
+  /**
+   * 用户看过的最后一个版本号，用于显示更新公告。
+   * NULL 表示从未标记，会显示当前版本的公告。
+   */
+  lastSeenVersion: text("last_seen_version"),
   createdAt,
   updatedAt,
 });

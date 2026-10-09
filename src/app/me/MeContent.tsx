@@ -423,9 +423,28 @@ export function MeContent({
                         hover:translate-x-1 hover:border-brand focus-visible:border-brand
                         focus-visible:outline-none motion-reduce:transition-none"
                     >
-                      <p className="line-clamp-3 whitespace-pre-wrap text-body leading-relaxed text-ink">
-                        {m.content || "（图片）"}
-                      </p>
+                      {m.content && (
+                        <p className="line-clamp-3 whitespace-pre-wrap text-body leading-relaxed text-ink">
+                          {m.content}
+                        </p>
+                      )}
+                      {m.mediaPaths.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {m.mediaPaths.slice(0, 3).map((path) => (
+                            <img
+                              key={path}
+                              src={`/api/v1/media/${path.split("/").pop()}`}
+                              alt=""
+                              className="h-20 w-20 rounded object-cover"
+                            />
+                          ))}
+                          {m.mediaPaths.length > 3 && (
+                            <div className="flex h-20 w-20 items-center justify-center rounded bg-paper-raised text-small text-ink-muted">
+                              +{m.mediaPaths.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <p className="mt-2 text-small text-ink-muted">{formatDay(m.date)}</p>
                     </Link>
                   </li>

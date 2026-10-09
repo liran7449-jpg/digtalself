@@ -28,6 +28,7 @@ function toUser(r: Row): User {
     name: r.name,
     birthday: r.birthday,
     birthdayNote: r.birthdayNote,
+    lastSeenVersion: r.lastSeenVersion,
     avatarUrl: r.avatarUrl,
     bio: r.bio,
     occupation: r.occupation,

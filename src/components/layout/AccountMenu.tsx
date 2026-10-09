@@ -102,6 +102,15 @@ export function AccountMenu({ name }: { name: string | null }) {
           >
             修改密码
           </Link>
+          <Link
+            role="menuitem"
+            href="/changelog"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-2.5 text-small text-ink-soft transition-colors
+              duration-[var(--duration-quick)] hover:bg-brand-soft hover:text-ink"
+          >
+            更新日志
+          </Link>
           <button
             role="menuitem"
             type="button"
