@@ -430,10 +430,10 @@ export function MeContent({
                       )}
                       {m.mediaPaths.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {m.mediaPaths.slice(0, 3).map((mediaId) => (
+                          {m.mediaPaths.slice(0, 3).map((path) => (
                             <img
-                              key={mediaId}
-                              src={`/api/v1/media/${mediaId}`}
+                              key={path}
+                              src={`/api/v1/media/${path.split("/").pop()}`}
                               alt=""
                               className="h-20 w-20 rounded object-cover"
                             />
