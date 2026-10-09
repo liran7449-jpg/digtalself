@@ -218,6 +218,15 @@ export interface MomentRepository {
   /** 用户主动删除是硬删除，不留残留 —— PRD 第 31 节隐私要求 */
   remove(id: string): Promise<void>;
   countByDate(date: DayKey): Promise<number>;
+  /** 查询所有带图片的 Moments，用于照片墙 */
+  listPhotos(): Promise<Array<{
+    id: string;
+    mediaId: string;
+    momentId: string;
+    content?: string;
+    date: string;
+    occurredAt: Date;
+  }>>;
 }
 
 export interface GoalRepository {

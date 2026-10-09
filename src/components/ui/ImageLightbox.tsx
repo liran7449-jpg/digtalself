@@ -1,131 +1,131 @@
+/**
+ * ImageLightbox: 图片灯箱组件
+ *
+ * 特性：
+ * - 全屏查看
+ * - 左右切换
+ * - 键盘导航（←/→/ESC）
+ * - 点击背景关闭
+ */
+
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useEffect, useCallback } from "react";
 
 interface ImageLightboxProps {
   images: string[];
-  initialIndex?: number;
+  initialIndex: number;
+  open: boolean;
   onClose: () => void;
 }
 
-/**
- * ImageLightbox - 图片全屏预览组件
- *
- * 功能：
- * - 全屏黑色遮罩背景
- * - 图片居中显示
- * - 多图时显示左右切换箭头
- * - 右上角关闭按钮 (×)
- * - 底部显示当前位置 (2/5)
- * - 键盘支持：ESC 关闭、左右键切换
- * - 点击遮罩关闭
- */
 export function ImageLightbox({
   images,
-  initialIndex = 0,
+  initialIndex,
+  open,
   onClose,
 }: ImageLightboxProps) {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
 
-  // 键盘事件处理
   useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [initialIndex]);
+
+  const goToPrevious = useCallback(() => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+  }, [images.length]);
+
+  const goToNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+  }, [images.length]);
+
+  useEffect(() => {
+    if (!open) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      switch (e.key) {
-        case "Escape":
-          onClose();
-          break;
-        case "ArrowLeft":
-          handlePrevious();
-          break;
-        case "ArrowRight":
-          handleNext();
-          break;
-      }
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") goToPrevious();
+      if (e.key === "ArrowRight") goToNext();
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex, images.length, onClose]);
-
-  // 阻止背景滚动
-  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
     document.body.style.overflow = "hidden";
+
     return () => {
-      document.body.style.overflow = "";
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "unset";
     };
-  }, []);
+  }, [open, onClose, goToPrevious, goToNext]);
 
-  const handlePrevious = () => {
-    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
-  };
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
-  };
-
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    // 只在点击遮罩时关闭，点击图片不关闭
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
+  if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/95"
-      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+      onClick={onClose}
     >
       {/* 关闭按钮 */}
       <button
         onClick={onClose}
-        className="absolute right-4 top-4 z-10 rounded-full bg-black/50 p-2 text-white
-          transition-colors hover:bg-black/70"
-        aria-label="关闭预览"
+        className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2
+          text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+        aria-label="关闭"
       >
-        <X className="size-6" />
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
       </button>
 
-      {/* 图片计数器（多图时显示） */}
-      {images.length > 1 && (
-        <div
-          className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full
-            bg-black/50 px-3 py-1 font-mono text-sm text-white"
-        >
-          {currentIndex + 1} / {images.length}
-        </div>
-      )}
-
-      {/* 左箭头（多图时显示） */}
+      {/* 左箭头 */}
       {images.length > 1 && (
         <button
-          onClick={handlePrevious}
-          className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full
-            bg-black/50 p-3 text-white transition-colors hover:bg-black/70"
+          onClick={(e) => {
+            e.stopPropagation();
+            goToPrevious();
+          }}
+          className="absolute left-4 z-10 rounded-full bg-white/10 p-3
+            text-white backdrop-blur-sm transition-colors hover:bg-white/20"
           aria-label="上一张"
         >
-          <ChevronLeft className="size-6" />
-        </button>
-      )}
-
-      {/* 右箭头（多图时显示） */}
-      {images.length > 1 && (
-        <button
-          onClick={handleNext}
-          className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full
-            bg-black/50 p-3 text-white transition-colors hover:bg-black/70"
-          aria-label="下一张"
-        >
-          <ChevronRight className="size-6" />
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
         </button>
       )}
 
       {/* 图片 */}
-      <img
-        src={images[currentIndex]}
-        alt={`预览图片 ${currentIndex + 1}`}
-        className="max-h-[90vh] max-w-[90vw] object-contain"
-      />
+      <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+        <img
+          src={images[currentIndex]}
+          alt=""
+          className="max-h-[90vh] max-w-[90vw] object-contain"
+        />
+
+        {/* 图片计数 */}
+        {images.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full
+            bg-black/50 px-3 py-1 text-small text-white backdrop-blur-sm">
+            {currentIndex + 1} / {images.length}
+          </div>
+        )}
+      </div>
+
+      {/* 右箭头 */}
+      {images.length > 1 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            goToNext();
+          }}
+          className="absolute right-4 z-10 rounded-full bg-white/10 p-3
+            text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+          aria-label="下一张"
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

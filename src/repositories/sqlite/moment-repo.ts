@@ -1,6 +1,6 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { moments } from "@/db/schema";
+import { moments, momentMedia, media } from "@/db/schema";
 import { toDayKey, type DayKey } from "@/domain/day-key";
 import type { Moment, QuickCaptureInput } from "@/domain/models";
 import { quickCaptureSchema } from "@/domain/models";
@@ -126,6 +126,25 @@ export function createMomentRepository(userId: string): MomentRepository {
         .from(moments)
         .where(and(eq(moments.userId, userId), eq(moments.date, date)));
       return rows[0]?.n ?? 0;
+    },
+
+    async listPhotos() {
+      const rows = await db
+        .select({
+          id: sql<string>`${momentMedia.momentId} || '-' || ${momentMedia.mediaId}`,
+          mediaId: momentMedia.mediaId,
+          momentId: moments.id,
+          content: moments.content,
+          date: moments.date,
+          occurredAt: moments.occurredAt,
+        })
+        .from(momentMedia)
+        .innerJoin(moments, eq(momentMedia.momentId, moments.id))
+        .innerJoin(media, eq(momentMedia.mediaId, media.id))
+        .where(eq(moments.userId, userId))
+        .orderBy(desc(moments.occurredAt));
+
+      return rows;
     },
   };
 }

@@ -224,13 +224,12 @@ export function MomentCard({
         </div>
 
         {/* 图片预览 Lightbox */}
-        {previewOpen && (
-          <ImageLightbox
-            images={imageUrls}
-            initialIndex={previewIndex}
-            onClose={() => setPreviewOpen(false)}
-          />
-        )}
+        <ImageLightbox
+          images={imageUrls}
+          initialIndex={previewIndex}
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+        />
       </div>
     </div>
   );

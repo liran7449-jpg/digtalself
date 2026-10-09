@@ -464,13 +464,12 @@ export function MomentComposer({ activeGoals = [], onSubmit }: MomentComposerPro
       </div>
 
       {/* 图片预览 Lightbox */}
-      {previewOpen && (
-        <ImageLightbox
-          images={previewUrls}
-          initialIndex={previewIndex}
-          onClose={closeImagePreview}
-        />
-      )}
+      <ImageLightbox
+        images={previewUrls}
+        initialIndex={previewIndex}
+        open={previewOpen}
+        onClose={closeImagePreview}
+      />
     </section>
   );
 }
