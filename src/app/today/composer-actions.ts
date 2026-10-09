@@ -14,7 +14,8 @@ import { PlaceService } from "@/services/place-service";
 import { TopicService } from "@/services/topic-service";
 import { GoalLinkService } from "@/services/goal-link-service";
 import { db } from "@/db/client";
-import { momentMedia } from "@/db/schema";
+import { momentMedia, moments } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function createMomentWithMedia(formData: FormData) {
   const userId = await requireUserId();
@@ -54,7 +55,7 @@ export async function createMomentWithMedia(formData: FormData) {
 
     // 2. 上传图片并关联
     if (imageFiles.length > 0) {
-      await Promise.all(
+      const uploadedMedia = await Promise.all(
         imageFiles.map(async (file) => {
           const buffer = Buffer.from(await file.arrayBuffer());
           const media = await MediaService.uploadImage({
@@ -69,8 +70,14 @@ export async function createMomentWithMedia(formData: FormData) {
             momentId: moment.id,
             mediaId: media.id,
           });
+
+          return media;
         })
       );
+
+      // 更新 Moment 的 media_paths 字段
+      const mediaPaths = uploadedMedia.map(m => m.storageKey);
+      await db.update(moments).set({ mediaPaths }).where(eq(moments.id, moment.id));
     }
 
     // 3. 关联人物
