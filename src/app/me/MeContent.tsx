@@ -67,8 +67,8 @@ const linkBtn =
 
 export function MeContent({
   goals,
-  selectedId,
-  evidence,
+  selectedId: initialSelectedId,
+  evidence: initialEvidence,
 }: {
   goals: GoalWithCount[];
   selectedId: string | null;
@@ -87,6 +87,11 @@ export function MeContent({
   // 右栏：状态操作
   const [statusError, setStatusError] = useState<string | null>(null);
 
+  // 客户端状态：当前选中的目标和证据
+  const [selectedId, setSelectedId] = useState(initialSelectedId);
+  const [evidence, setEvidence] = useState(initialEvidence);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
+
   const selected = goals.find((g) => g.id === selectedId) ?? null;
 
   function resetItem() {
@@ -96,10 +101,27 @@ export function MeContent({
     setItemError(null);
   }
 
-  function select(id: string) {
+  async function select(id: string) {
     resetItem();
     setStatusError(null);
-    router.push(`/me?goalId=${id}`, { scroll: false });
+    setSelectedId(id);
+    setLoadingEvidence(true);
+
+    // 客户端获取 evidence，不重新加载页面
+    try {
+      const res = await fetch(`/api/v1/goals/${id}/evidence`);
+      if (!res.ok) throw new Error("Failed to fetch evidence");
+      const data = await res.json();
+      setEvidence(data);
+
+      // 更新 URL（不重新加载页面）
+      router.push(`/me?goalId=${id}`, { scroll: false });
+    } catch (error) {
+      console.error("Failed to load evidence:", error);
+      setStatusError("加载证据失败，请重试");
+    } finally {
+      setLoadingEvidence(false);
+    }
   }
 
   function cancelCreate() {
@@ -413,7 +435,14 @@ export function MeContent({
               <div className={`mt-4 ${fadeLine}`} />
             </header>
 
-            {evidence.length > 0 ? (
+            {loadingEvidence ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="text-center">
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand border-r-transparent motion-reduce:animate-none" />
+                  <p className="mt-4 text-small text-ink-muted">加载中...</p>
+                </div>
+              </div>
+            ) : evidence.length > 0 ? (
               <ul className="mt-8 space-y-6">
                 {evidence.map((m) => (
                   <li key={m.id}>
