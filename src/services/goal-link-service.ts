@@ -112,17 +112,20 @@ export const GoalLinkService = {
    * 两端都按 userId 过滤：goal 属于自己，moment 也属于自己。
    */
   async listEvidence(userId: string, goalId: string): Promise<GoalEvidence[]> {
+    // 一次查询获取所有 moments 和它们的 media（LEFT JOIN）
     const rows = await db
       .select({
-        id: moments.id,
+        momentId: moments.id,
         content: moments.content,
         date: moments.date,
         occurredAt: moments.occurredAt,
-        mediaPaths: moments.mediaPaths,
+        mediaId: media.id,
       })
       .from(momentGoals)
       .innerJoin(goals, eq(momentGoals.goalId, goals.id))
       .innerJoin(moments, eq(momentGoals.momentId, moments.id))
+      .leftJoin(momentMedia, eq(moments.id, momentMedia.momentId))
+      .leftJoin(media, eq(momentMedia.mediaId, media.id))
       .where(
         and(
           eq(momentGoals.goalId, goalId),
@@ -132,20 +135,25 @@ export const GoalLinkService = {
       )
       .orderBy(desc(moments.occurredAt));
 
-    // 对于每个 moment，查询关联的 media IDs（通过 moment_media 表）
-    const result = await Promise.all(
-      rows.map(async (row) => {
-        const mediaRecords = await db
-          .select({ id: media.id })
-          .from(momentMedia)
-          .innerJoin(media, eq(momentMedia.mediaId, media.id))
-          .where(eq(momentMedia.momentId, row.id));
+    // 在内存中聚合（一个 moment 可能有多个 media，会产生多行）
+    const grouped = new Map<string, GoalEvidence>();
+    for (const row of rows) {
+      const key = row.momentId;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          id: row.momentId,
+          content: row.content,
+          date: row.date,
+          occurredAt: row.occurredAt,
+          mediaPaths: [],
+        });
+      }
+      // 如果有 media，添加到数组（避免重复）
+      if (row.mediaId && !grouped.get(key)!.mediaPaths.includes(row.mediaId)) {
+        grouped.get(key)!.mediaPaths.push(row.mediaId);
+      }
+    }
 
-        const mediaIds = mediaRecords.map(m => m.id);
-        return { ...row, mediaPaths: mediaIds };
-      })
-    );
-
-    return result;
+    return Array.from(grouped.values());
   },
 };
