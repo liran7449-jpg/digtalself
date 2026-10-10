@@ -434,3 +434,44 @@ export const milestones = pgTable("milestones", {
   createdAt,
   updatedAt,
 });
+
+/**
+ * AI 对话历史。每段对话一行，标题取第一条消息的前缀。
+ * 删除用户时级联删除对话。
+ */
+export const aiConversations = pgTable(
+  "ai_conversations",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("ai_conversations_user_idx").on(t.userId, t.updatedAt)],
+);
+
+/**
+ * AI 对话中的消息。role 是 user 或 assistant。
+ * 删除对话时级联删除消息。
+ */
+export const aiMessages = pgTable(
+  "ai_messages",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => aiConversations.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .default("me")
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role").notNull(), // "user" | "assistant"
+    content: text("content").notNull(),
+    createdAt,
+  },
+  (t) => [index("ai_messages_conversation_idx").on(t.conversationId, t.createdAt)],
+);

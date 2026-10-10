@@ -2,8 +2,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Sparkle } from "@/components/ui/Primitives";
 import { AccountMenu } from "./AccountMenu";
+import { AiButler } from "@/components/ai/AiButler";
 import { userRepo } from "@/repositories";
 import { getCurrentUserId } from "@/lib/session";
+import { getAiConfig } from "@/lib/ai/config";
 
 const NAV = [
   { href: "/today", label: "Today" },
@@ -37,6 +39,7 @@ export async function AppShell({
    */
   const userId = await getCurrentUserId();
   const me = userId ? await userRepo.findById(userId) : null;
+  const aiConfig = getAiConfig();
 
   return (
     <div className="min-h-dvh">
@@ -69,17 +72,18 @@ export async function AppShell({
           <div className="flex items-center gap-2">
             {me && <AccountMenu name={me.name ?? me.username} />}
 
-            {/* AI Butler 全局入口。P0 尚未接 AI，先禁用并说明。 */}
-            <button
-              type="button"
-              disabled
-              aria-label="AI Butler（即将上线）"
-              title="AI Butler 即将上线"
-              className="flex size-11 items-center justify-center rounded-soft text-ai
-                opacity-40 disabled:cursor-not-allowed"
-            >
-              <Sparkle className="size-4" />
-            </button>
+            {aiConfig ? (
+              <AiButler provider={aiConfig.provider} />
+            ) : (
+              <button
+                type="button"
+                disabled
+                aria-label="AI 未配置"
+                className="flex size-11 cursor-not-allowed items-center justify-center rounded-soft text-ink-hint opacity-40"
+              >
+                <Sparkle className="size-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>

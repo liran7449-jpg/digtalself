@@ -43,6 +43,13 @@
       "when": 1791527673195,
       "tag": "0005_add_user_last_seen_version",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791632481856,
+      "tag": "0006_amazing_nuke",
+      "breakpoints": true
     }
   ]
 }
