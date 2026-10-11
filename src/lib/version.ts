@@ -4,7 +4,7 @@
  * 用于更新公告：用户的 lastSeenVersion < APP_VERSION 时显示弹窗。
  * 有新功能上线时手动递增版本号（如 1.1.0 → 1.2.0）。
  */
-export const APP_VERSION = "1.1.0";
+export const APP_VERSION = "1.2.0";
 
 /**
  * 更新公告内容。
@@ -21,6 +21,15 @@ export const CHANGELOG: Record<
     cta?: { label: string; href: string };
   }
 > = {
+  "1.2.0": {
+    title: "AI Butler — 陪你回顾和整理",
+    description: "点击右上角 ✦ 按钮，AI 能看到你的记录和目标，陪你回顾、整理、聊聊。",
+    highlights: [
+      "AI 能看到你最近的 Moment、目标和心情",
+      "问问「这周我过得怎么样」或「最近离哪个目标更近了」",
+      "对话会保存，随时能翻回去看",
+    ],
+  },
   "1.1.0": {
     title: "Goals — 让成长看得见",
     description: "现在你可以在 Me 管理自己的方向和目标，记录时关联目标，积累成长证据。",
