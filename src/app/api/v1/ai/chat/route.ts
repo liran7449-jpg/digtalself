@@ -21,24 +21,30 @@ import { userRepo } from "@/repositories";
 
 const reqSchema = z.object({
   message: z.string().trim().min(1).max(2000),
-  conversationId: z.string().optional(),
+  conversationId: z.string().optional().nullable(),
 });
 
 export async function POST(request: NextRequest) {
+  console.log("[AI Chat] Request received");
+
   const userId = await getCurrentUserId();
+  console.log("[AI Chat] userId:", userId);
   if (!userId) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const config = getAiConfig();
+  console.log("[AI Chat] config:", config ? "present" : "missing");
   if (!config) {
     return Response.json({ error: "AI 未配置" }, { status: 503 });
   }
 
   const body = await request.json();
+  console.log("[AI Chat] body:", body);
   const parsed = reqSchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json({ error: "Invalid request" }, { status: 400 });
+    console.error("[AI Chat] Validation failed:", parsed.error.flatten());
+    return Response.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
   }
 
   const { message, conversationId } = parsed.data;
@@ -53,7 +59,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 确定对话 ID
-  let convId = conversationId;
+  let convId = conversationId || null;
   if (convId) {
     // 验证对话归属
     const conv = await db.query.aiConversations.findFirst({
@@ -83,12 +89,16 @@ export async function POST(request: NextRequest) {
     content: message,
   });
 
-  // 拉取历史
-  const history = await db.query.aiMessages.findMany({
+  // 拉取历史（只取最近 10 轮，即 20 条消息）
+  const allHistory = await db.query.aiMessages.findMany({
     where: eq(aiMessages.conversationId, convId),
     orderBy: (m, { asc }) => [asc(m.createdAt)],
     columns: { role: true, content: true },
   });
+
+  // 滑动窗口：只保留最近 20 条（10 轮对话）
+  const WINDOW_SIZE = 20;
+  const history = allHistory.slice(-WINDOW_SIZE);
 
   // 构建上下文
   const user = await userRepo.findById(userId);

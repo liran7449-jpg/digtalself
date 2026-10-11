@@ -43,7 +43,7 @@ export async function AppShell({
 
   return (
     <div className="min-h-dvh">
-      <header className="border-b border-line">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-50 border-b border-line bg-paper">
         <div
           className={`mx-auto flex items-center justify-between px-6 py-4 sm:px-10 ${
             width === "wide" ? "max-w-6xl" : "max-w-3xl"

@@ -35,6 +35,7 @@ export function AiButler({ provider }: { provider: string }) {
   const [confirming, setConfirming] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -46,10 +47,35 @@ export function AiButler({ provider }: { provider: string }) {
     }
   }, [open]);
 
-  // 自动滚到底部
+  // 恢复滚动位置
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (open && conversationId && messagesContainerRef.current) {
+      const savedScroll = localStorage.getItem(`ai-scroll-${conversationId}`);
+      if (savedScroll) {
+        messagesContainerRef.current.scrollTop = parseInt(savedScroll, 10);
+      }
+    }
+  }, [open, conversationId]);
+
+  // 保存滚动位置
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || !conversationId) return;
+
+    const handleScroll = () => {
+      localStorage.setItem(`ai-scroll-${conversationId}`, String(container.scrollTop));
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [conversationId]);
+
+  // 新消息时滚到底部
+  useEffect(() => {
+    if (streaming || messages[messages.length - 1]?.role === "assistant") {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, streaming]);
 
   // 加载历史列表
   useEffect(() => {
@@ -85,6 +111,9 @@ export function AiButler({ provider }: { provider: string }) {
     abortRef.current = new AbortController();
     setStreaming(true);
 
+    // 立即添加空的 assistant 消息，显示思考动画
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
     try {
       const res = await fetch("/api/v1/ai/chat", {
         method: "POST",
@@ -113,8 +142,6 @@ export function AiButler({ provider }: { provider: string }) {
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let assistantText = "";
-
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       if (reader) {
         for (;;) {
@@ -206,15 +233,8 @@ export function AiButler({ provider }: { provider: string }) {
             </div>
           </header>
 
-          {/* Privacy notice */}
-          {view === "chat" && !isEmpty && (
-            <p className="border-b border-line-soft px-5 py-1.5 text-label text-ink-faint">
-              对话和近期记录会发送给 {provider} 处理
-            </p>
-          )}
-
           {/* Content */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div ref={messagesContainerRef} className="min-h-0 flex-1 overflow-y-auto">
             {view === "history" ? (
               <ul className="px-3 py-3">
                 {conversations.map((c) => (
@@ -266,7 +286,6 @@ export function AiButler({ provider }: { provider: string }) {
                   <br />
                   可以陪你回顾、整理、聊聊。
                 </p>
-                <p className="mt-3 text-small text-ink-muted">对话和近期记录会发送给 {provider} 处理。</p>
                 <p className="mt-8 label-caps text-ink-faint">试试问我</p>
                 <ul className="mt-3 space-y-2">
                   {["这周我过得怎么样？", "最近我离哪个目标更近了？", "帮我回顾一下今天"].map((q) => (
@@ -298,12 +317,23 @@ export function AiButler({ provider }: { provider: string }) {
                   ) : (
                     <div key={i} className="border-l-2 border-ai-border pl-4">
                       <p className="whitespace-pre-wrap text-body leading-relaxed text-ink">
-                        {m.content || (streaming && i === messages.length - 1 && (
-                          <span className="text-ink-muted">正在翻看你的记录…</span>
-                        ))}
-                        {streaming && i === messages.length - 1 && m.content && (
-                          <span aria-hidden className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-pulse bg-ai" />
-                        )}
+                        {m.content ? (
+                          <>
+                            {m.content}
+                            {streaming && i === messages.length - 1 && (
+                              <span aria-hidden className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-pulse bg-ai" />
+                            )}
+                          </>
+                        ) : streaming && i === messages.length - 1 ? (
+                          <span className="flex items-center gap-2 text-ink-muted">
+                            <span className="flex gap-1">
+                              <span className="inline-block size-1.5 animate-pulse rounded-full bg-ai" style={{ animationDelay: "0ms" }} />
+                              <span className="inline-block size-1.5 animate-pulse rounded-full bg-ai" style={{ animationDelay: "150ms" }} />
+                              <span className="inline-block size-1.5 animate-pulse rounded-full bg-ai" style={{ animationDelay: "300ms" }} />
+                            </span>
+                            正在思考…
+                          </span>
+                        ) : null}
                       </p>
                     </div>
                   )

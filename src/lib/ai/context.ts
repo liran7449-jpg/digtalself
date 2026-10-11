@@ -12,9 +12,9 @@ import { toDayKey, addDays, formatDayLong, formatClock } from "@/domain/day-key"
 import { MOOD_LABELS } from "@/domain/labels";
 import type { Mood } from "@/domain/enums";
 
-const LOOKBACK_DAYS = 14;
-const MAX_MOMENTS = 80;
-const MOMENT_TRUNCATE = 280;
+const MAX_MOMENTS = 300; // 扩大到 300 条
+const MOMENT_TRUNCATE = 200; // 每条截短到 200 字
+const MOMENT_TOKEN_BUDGET = 8000; // 粗略估算：中文 1 token ≈ 1.5 字，给 Moment 留 12000 字左右
 
 export interface AiContext {
   /** 组装好的上下文文本，附在系统提示词后 */
@@ -29,7 +29,6 @@ export interface AiContext {
 
 export async function buildAiContext(userId: string): Promise<AiContext> {
   const todayKey = toDayKey();
-  const cutoff = addDays(todayKey, -LOOKBACK_DAYS);
 
   // 并行拉三份数据
   const [activeGoals, recentMoments, recentDays] = await Promise.all([
@@ -40,7 +39,7 @@ export async function buildAiContext(userId: string): Promise<AiContext> {
       .where(and(eq(goals.userId, userId), eq(goals.status, "active")))
       .orderBy(desc(goals.createdAt)),
 
-    // 最近 14 天的 Moment，关联目标
+    // 所有 Moment，优先与目标相关的，再按时间倒序
     db
       .select({
         id: moments.id,
@@ -50,12 +49,16 @@ export async function buildAiContext(userId: string): Promise<AiContext> {
         content: moments.content,
         imageCount: sql<number>`(SELECT COUNT(*) FROM moment_media WHERE moment_id = ${moments.id})`,
         goalTitle: goals.title,
+        hasGoal: sql<number>`CASE WHEN ${goals.id} IS NOT NULL THEN 1 ELSE 0 END`,
       })
       .from(moments)
       .leftJoin(momentGoals, eq(moments.id, momentGoals.momentId))
       .leftJoin(goals, eq(momentGoals.goalId, goals.id))
-      .where(and(eq(moments.userId, userId), gte(moments.date, cutoff)))
-      .orderBy(desc(moments.createdAt))
+      .where(eq(moments.userId, userId))
+      .orderBy(
+        sql`CASE WHEN ${goals.id} IS NOT NULL THEN 1 ELSE 0 END DESC`, // 有目标的优先
+        desc(moments.createdAt)
+      )
       .limit(MAX_MOMENTS),
 
     // 最近几天的状态（心情、Focus）
@@ -99,9 +102,12 @@ export async function buildAiContext(userId: string): Promise<AiContext> {
     text += `\n`;
   }
 
-  // Moment 列表
+  // Moment 列表，按 token 预算截断
   if (recentMoments.length > 0) {
-    text += `# 最近 ${LOOKBACK_DAYS} 天的记录\n\n`;
+    text += `# 你的记录\n\n`;
+    let tokenUsed = 0;
+    let included = 0;
+
     for (const m of recentMoments) {
       const time = formatClock(m.createdAt);
       let line = `**${formatDayLong(m.date, "zh-CN")} ${time}**`;
@@ -116,7 +122,21 @@ export async function buildAiContext(userId: string): Promise<AiContext> {
         content = content.slice(0, MOMENT_TRUNCATE) + "…";
       }
       line += content + `\n\n`;
+
+      // 粗略估算 token（中文 1 char ≈ 0.7 token）
+      const lineTokens = Math.ceil(line.length * 0.7);
+      if (tokenUsed + lineTokens > MOMENT_TOKEN_BUDGET && included > 10) {
+        // 至少保留 10 条，超预算就截断
+        break;
+      }
+
       text += line;
+      tokenUsed += lineTokens;
+      included++;
+    }
+
+    if (included < recentMoments.length) {
+      text += `_（还有 ${recentMoments.length - included} 条更早的记录未列出）_\n\n`;
     }
   }
 
