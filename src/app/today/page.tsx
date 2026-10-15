@@ -3,9 +3,10 @@ import { getRepo } from "@/repositories";
 import { requireUserId } from "@/lib/session";
 import { isBirthdayToday } from "@/domain/birthday";
 import { BirthdayGreeting } from "@/components/birthday/BirthdayGreeting";
-import { formatDayLong, greeting, toDayKey } from "@/domain/day-key";
+import { formatDayLong, toDayKey } from "@/domain/day-key";
 import { MorningSetup } from "./MorningSetup";
 import { MyState } from "./MyState";
+import { ClientGreeting } from "./ClientGreeting";
 import { FocusLine } from "./FocusLine";
 import { MomentComposerWrapper } from "./MomentComposerWrapper";
 import { Timeline } from "./Timeline";
@@ -47,7 +48,7 @@ export default async function TodayPage() {
     return (
       <AppShell current="/today" width="wide">
         {birthdayGreeting && <div className="mb-8">{birthdayGreeting}</div>}
-        <MorningSetup greeting={greeting(now)} dateLabel={dateLabel} />
+        <MorningSetup greeting={<ClientGreeting />} dateLabel={dateLabel} />
       </AppShell>
     );
   }
@@ -106,7 +107,7 @@ export default async function TodayPage() {
           <header>
             <p className="text-small text-ink-muted">{dateLabel}</p>
             <h1 className="mt-2.5 font-display text-display text-ink">
-              {greeting(now)}
+              <ClientGreeting />
             </h1>
             <div className="mt-4">
               <MyState day={day} />

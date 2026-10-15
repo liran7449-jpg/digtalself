@@ -1,72 +1,58 @@
 #!/usr/bin/env node
 /**
- * 导出本地 PostgreSQL 数据为 JSON
- * 用于同步到云端数据库
+ * 导出 Railway 数据到 JSON 文件
  */
 
-import postgres from 'postgres';
-import { writeFileSync } from 'fs';
+import postgres from "postgres";
+import fs from "fs";
 
-const LOCAL_DB = 'postgresql://postgres:localdev123@localhost:5432/digitalself';
-const sql = postgres(LOCAL_DB);
+const databaseUrl = process.argv[2] || process.env.DATABASE_URL;
 
-console.log('📦 导出本地数据...\n');
+if (!databaseUrl) {
+  console.error("Usage: node scripts/export-data.mjs <DATABASE_URL>");
+  process.exit(1);
+}
 
-// 导出所有表
-const users = await sql`SELECT * FROM users`;
-const days = await sql`SELECT * FROM days`;
-const moments = await sql`SELECT * FROM moments ORDER BY occurred_at`;
-const goals = await sql`SELECT * FROM goals`;
-const planItems = await sql`SELECT * FROM plan_items`;
-const memories = await sql`SELECT * FROM memories`;
-const insights = await sql`SELECT * FROM insights`;
-const people = await sql`SELECT * FROM people`;
-const places = await sql`SELECT * FROM places`;
-const topics = await sql`SELECT * FROM topics`;
-const media = await sql`SELECT * FROM media`;
+const sql = postgres(databaseUrl);
 
-// 导出关联表
-const momentGoals = await sql`SELECT * FROM moment_goals`;
-const momentPeople = await sql`SELECT * FROM moment_people`;
-const momentPlaces = await sql`SELECT * FROM moment_places`;
-const momentTopics = await sql`SELECT * FROM moment_topics`;
-const momentMedia = await sql`SELECT * FROM moment_media`;
-const growthEvidences = await sql`SELECT * FROM growth_evidences`;
+async function exportData() {
+  console.log("正在导出数据...");
 
-const data = {
-  users,
-  days,
-  moments,
-  goals,
-  planItems,
-  memories,
-  insights,
-  people,
-  places,
-  topics,
-  media,
-  momentGoals,
-  momentPeople,
-  momentPlaces,
-  momentTopics,
-  momentMedia,
-  growthEvidences,
-};
+  const data = {};
 
-const filename = `backup-${new Date().toISOString().split('T')[0]}.json`;
-writeFileSync(filename, JSON.stringify(data, null, 2));
+  // 导出所有表
+  const tables = [
+    "users",
+    "media",
+    "moments",
+    "moment_media",
+    "days",
+    "goals",
+    "moment_goals",
+    "ai_conversations",
+    "ai_messages",
+  ];
 
-console.log('✅ 数据导出成功：', filename);
-console.log('\n📊 数据统计：');
-console.log('  Users:', users.length);
-console.log('  Days:', days.length);
-console.log('  Moments:', moments.length);
-console.log('  Goals:', goals.length);
-console.log('  Plan Items:', planItems.length);
-console.log('  Memories:', memories.length);
-console.log('  People:', people.length);
-console.log('  Places:', places.length);
-console.log('  Topics:', topics.length);
-console.log('  Media:', media.length);
+  for (const table of tables) {
+    try {
+      const rows = await sql`SELECT * FROM ${sql(table)}`;
+      data[table] = rows;
+      console.log(`✓ ${table}: ${rows.length} 条`);
+    } catch (err) {
+      console.log(`✗ ${table}: ${err.message}`);
+      data[table] = [];
+    }
+  }
 
-await sql.end();
+  const outputPath = "./railway-data-export.json";
+  fs.writeFileSync(outputPath, JSON.stringify(data, null, 2));
+  console.log(`\n✓ 数据已导出到 ${outputPath}`);
+  console.log(`文件大小: ${(fs.statSync(outputPath).size / 1024).toFixed(2)} KB`);
+
+  await sql.end();
+}
+
+exportData().catch((err) => {
+  console.error("导出失败:", err);
+  process.exit(1);
+});

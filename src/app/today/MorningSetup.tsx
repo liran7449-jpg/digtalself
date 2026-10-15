@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Primitives";
 import { MoodPicker, type MoodKey } from "@/components/state/MoodPicker";
@@ -10,7 +10,7 @@ import { submitMorningSetup } from "./actions";
  * IA 第 9 节 Morning Setup。简化为两步：mood + focus。
  * 每一步都可跳过 —— 强制填写会让用户在状态不好的那天直接放弃打开产品。
  */
-export function MorningSetup({ greeting, dateLabel }: { greeting: string; dateLabel: string }) {
+export function MorningSetup({ greeting, dateLabel }: { greeting: ReactNode; dateLabel: string }) {
   const [mood, setMood] = useState<MoodKey | null>(null);
   const [focus, setFocus] = useState("");
   const [error, setError] = useState<string | null>(null);
