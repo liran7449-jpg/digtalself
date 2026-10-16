@@ -27,15 +27,27 @@ export const MediaService = {
       throw new Error(`图片过大（${(input.file.length / 1024 / 1024).toFixed(1)}MB），最大支持 50MB`);
     }
 
-    // 提取图片尺寸
-    const metadata = await sharp(input.file).metadata();
+    // 大图片（>10MB）跳过宽高提取，避免超时
+    let width: number | undefined;
+    let height: number | undefined;
+
+    if (input.file.length <= 10 * 1024 * 1024) {
+      try {
+        const metadata = await sharp(input.file, { limitInputPixels: false }).metadata();
+        width = metadata.width;
+        height = metadata.height;
+      } catch (error) {
+        console.warn("Failed to extract image metadata:", error);
+        // 继续上传，不阻塞
+      }
+    }
 
     return repoFor(input.userId).media.create({
       file: input.file,
       type: input.mimeType,
       size: input.file.length,
-      width: metadata.width,
-      height: metadata.height,
+      width,
+      height,
     });
   },
 
