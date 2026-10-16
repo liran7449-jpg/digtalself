@@ -32,7 +32,9 @@ function format(d: Date): DayKey {
 
 /** 给定时刻属于哪个 DayKey。凌晨 4 点前算前一天。 */
 export function toDayKey(at: Date = new Date()): DayKey {
-  const shifted = new Date(at);
+  // 强制使用 Asia/Shanghai 时区（UTC+8）避免服务器时区不一致
+  const chinaTime = new Date(at.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
+  const shifted = new Date(chinaTime);
   shifted.setHours(shifted.getHours() - DAY_BOUNDARY_HOUR);
   return format(shifted);
 }
