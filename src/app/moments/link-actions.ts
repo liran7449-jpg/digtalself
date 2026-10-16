@@ -102,12 +102,28 @@ export async function uploadImage(momentId: string, formData: FormData) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  // 上传图片。userId 来自 session，不是硬编码的 'me'
-  const media = await MediaService.uploadImage({
-    userId,
-    file: buffer,
-    mimeType: file.type,
-  });
+  // 根据 MIME 类型判断是图片还是视频
+  const isVideo = file.type.startsWith("video/");
+
+  let media;
+  try {
+    if (isVideo) {
+      media = await MediaService.uploadVideo({
+        userId,
+        file: buffer,
+        mimeType: file.type,
+      });
+    } else {
+      media = await MediaService.uploadImage({
+        userId,
+        file: buffer,
+        mimeType: file.type,
+      });
+    }
+  } catch (error) {
+    // 返回友好的错误信息
+    throw new Error(error instanceof Error ? error.message : "上传失败");
+  }
 
   // 关联到 Moment
   await db.insert(momentMedia).values({ momentId, mediaId: media.id });

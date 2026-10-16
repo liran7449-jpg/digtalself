@@ -31,16 +31,16 @@ export async function createMomentWithMedia(formData: FormData) {
   const topics: string[] = topicsJson ? JSON.parse(topicsJson) : [];
   const goalIds: string[] = goalIdsJson ? JSON.parse(goalIdsJson) : [];
 
-  // 提取所有图片文件
-  const imageFiles: File[] = [];
+  // 提取所有图片和视频文件
+  const mediaFiles: File[] = [];
   for (const [key, value] of formData.entries()) {
     if (key.startsWith("image_") && value instanceof File) {
-      imageFiles.push(value);
+      mediaFiles.push(value);
     }
   }
 
-  if (!content.trim() && imageFiles.length === 0) {
-    return { ok: false, error: "请输入内容或添加图片" };
+  if (!content.trim() && mediaFiles.length === 0) {
+    return { ok: false, error: "请输入内容或添加图片/视频" };
   }
 
   try {
@@ -53,17 +53,24 @@ export async function createMomentWithMedia(formData: FormData) {
       type: "thought", // 默认类型，后续可以 AI 推断
     }, new Date());
 
-    // 2. 上传图片并关联
-    if (imageFiles.length > 0) {
+    // 2. 上传图片/视频并关联
+    if (mediaFiles.length > 0) {
       const uploadedMedia = await Promise.all(
-        imageFiles.map(async (file) => {
+        mediaFiles.map(async (file) => {
           const buffer = Buffer.from(await file.arrayBuffer());
-          const media = await MediaService.uploadImage({
-            // 来自 session，不是硬编码的 'me'
-            userId,
-            file: buffer,
-            mimeType: file.type,
-          });
+          const isVideo = file.type.startsWith("video/");
+
+          const media = isVideo
+            ? await MediaService.uploadVideo({
+                userId,
+                file: buffer,
+                mimeType: file.type,
+              })
+            : await MediaService.uploadImage({
+                userId,
+                file: buffer,
+                mimeType: file.type,
+              });
 
           // 关联到 Moment
           await db.insert(momentMedia).values({
@@ -107,6 +114,8 @@ export async function createMomentWithMedia(formData: FormData) {
     return { ok: true };
   } catch (error) {
     console.error("Failed to create moment:", error);
-    return { ok: false, error: "保存失败，请重试" };
+    // 返回具体错误信息（如文件过大）
+    const errorMessage = error instanceof Error ? error.message : "保存失败，请重试";
+    return { ok: false, error: errorMessage };
   }
 }

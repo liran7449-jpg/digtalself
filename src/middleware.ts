@@ -86,7 +86,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - Server Actions (处理大文件上传，有自己的 bodySizeLimit)
      */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    "/((?!_next/static|_next/image|_next/data|favicon.ico).*)",
   ],
 };

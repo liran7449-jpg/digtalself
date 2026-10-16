@@ -21,6 +21,12 @@ export const MediaService = {
     file: Buffer;
     mimeType: string;
   }): Promise<Media> {
+    // 检查文件大小（图片最大 50MB）
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (input.file.length > maxSize) {
+      throw new Error(`图片过大（${(input.file.length / 1024 / 1024).toFixed(1)}MB），最大支持 50MB`);
+    }
+
     // 提取图片尺寸
     const metadata = await sharp(input.file).metadata();
 
@@ -30,6 +36,27 @@ export const MediaService = {
       size: input.file.length,
       width: metadata.width,
       height: metadata.height,
+    });
+  },
+
+  /**
+   * 上传视频。
+   */
+  async uploadVideo(input: {
+    userId: string;
+    file: Buffer;
+    mimeType: string;
+  }): Promise<Media> {
+    // 检查文件大小（视频最大 150MB）
+    const maxSize = 150 * 1024 * 1024; // 150MB
+    if (input.file.length > maxSize) {
+      throw new Error(`视频过大（${(input.file.length / 1024 / 1024).toFixed(1)}MB），最大支持 150MB`);
+    }
+
+    return repoFor(input.userId).media.create({
+      file: input.file,
+      type: input.mimeType,
+      size: input.file.length,
     });
   },
 
