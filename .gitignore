@@ -56,5 +56,11 @@ next-env.d.ts
 backups/
 backup-*.json
 
+# Railway 数据导出和部署脚本（包含密钥）
+railway-data-export.json
+scripts/add-vercel-env.sh
+scripts/clear-data.mjs
+scripts/import-*.mjs
+
 # Playwright MCP 调试产物
 .playwright-mcp/
