@@ -161,6 +161,46 @@ export function MomentComposer({ activeGoals = [], onSubmit }: MomentComposerPro
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+
+    // 遍历剪贴板内容，提取图片
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      // 只处理图片类型
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    // 如果有图片，添加到列表
+    if (imageFiles.length > 0) {
+      e.preventDefault(); // 阻止默认粘贴行为
+
+      // 检查文件大小
+      for (const file of imageFiles) {
+        const isVideo = file.type.startsWith('video/');
+        const maxSize = isVideo ? 150 * 1024 * 1024 : 50 * 1024 * 1024;
+
+        if (file.size > maxSize) {
+          const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+          const maxSizeMB = (maxSize / 1024 / 1024).toFixed(0);
+          setError(`${isVideo ? '视频' : '图片'}过大（${sizeMB}MB），最大支持 ${maxSizeMB}MB`);
+          return;
+        }
+      }
+
+      setImages(prev => [...prev, ...imageFiles]);
+    }
+  };
+
   return (
     <section>
       <div className="flex items-baseline justify-between gap-4">
@@ -179,6 +219,7 @@ export function MomentComposer({ activeGoals = [], onSubmit }: MomentComposerPro
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={onKeyDown}
+        onPaste={handlePaste}
         rows={3}
         maxLength={20000}
         placeholder="现在在想什么？"
