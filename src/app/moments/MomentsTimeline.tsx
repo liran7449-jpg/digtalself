@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/Primitives";
 import { MomentCard } from "@/components/moment/MomentCard";
 import { MonthCalendar } from "@/components/calendar/MonthCalendar";
 import { formatDayHeading, type DayKey, type MonthKey } from "@/domain/day-key";
-import type { Moment, Media, Person, Place, Topic, DaySummary } from "@/domain/models";
+import type { Moment, Media, Person, Place, Topic } from "@/domain/models";
+import type { DaySummary } from "@/repositories/types";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 
 interface MomentWithRelations extends Moment {
