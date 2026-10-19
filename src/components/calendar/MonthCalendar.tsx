@@ -28,6 +28,10 @@ export function MonthCalendar({
   today,
   /** 当前正在查看的某一天，会被高亮 */
   activeDate,
+  /** 选中的日期，用于时间线定位 */
+  selectedDate,
+  /** 点击日期的回调，用于时间线定位 */
+  onDateClick,
   /** 传了才显示「收起」；侧栏常驻时不传 */
   closeHref,
   /** 生成切换月份的链接 */
@@ -37,6 +41,8 @@ export function MonthCalendar({
   summaries: DaySummary[];
   today: DayKey;
   activeDate?: DayKey;
+  selectedDate?: DayKey | null;
+  onDateClick?: (date: DayKey) => void;
   closeHref?: string;
   monthHref: (m: MonthKey) => string;
 }) {
@@ -49,51 +55,54 @@ export function MonthCalendar({
 
   return (
     <div className="animate-rise">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="label-caps text-ink-faint">{formatMonthLong(month)}</h2>
+      {/* 月份标题 - 吸顶，相对于视口 */}
+      <div className="sticky top-0 z-10 -mx-4 bg-paper px-4 pb-4 pt-10">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className="label-caps text-ink-faint">{formatMonthLong(month)}</h2>
 
-        <div className="flex items-center gap-1">
-          {/* 切月份只换日历内容，不该把左边的时间流滚回顶部 */}
-          <Link
-            href={monthHref(addMonths(month, -1))}
-            scroll={false}
-            aria-label="上一个月"
-            className="flex size-11 items-center justify-center rounded-soft text-ink-muted
-              transition-colors duration-[var(--duration-quick)]
-              hover:bg-paper-raised hover:text-ink"
-          >
-            ‹
-          </Link>
-
-          {canGoNext ? (
+          <div className="flex items-center gap-1">
+            {/* 切月份只换日历内容，不该把左边的时间流滚回顶部 */}
             <Link
-              href={monthHref(addMonths(month, 1))}
+              href={monthHref(addMonths(month, -1))}
               scroll={false}
-              aria-label="下一个月"
+              aria-label="上一个月"
               className="flex size-11 items-center justify-center rounded-soft text-ink-muted
                 transition-colors duration-[var(--duration-quick)]
                 hover:bg-paper-raised hover:text-ink"
             >
-              ›
+              ‹
             </Link>
-          ) : (
-            <span
-              aria-hidden="true"
-              className="flex size-11 items-center justify-center text-line-strong"
-            >
-              ›
-            </span>
-          )}
 
-          {closeHref && (
-            <Link
-              href={closeHref}
-              className="ml-2 flex min-h-11 items-center px-2 text-small text-ink-muted
-                transition-colors hover:text-ink"
-            >
-              收起
-            </Link>
-          )}
+            {canGoNext ? (
+              <Link
+                href={monthHref(addMonths(month, 1))}
+                scroll={false}
+                aria-label="下一个月"
+                className="flex size-11 items-center justify-center rounded-soft text-ink-muted
+                  transition-colors duration-[var(--duration-quick)]
+                  hover:bg-paper-raised hover:text-ink"
+              >
+                ›
+              </Link>
+            ) : (
+              <span
+                aria-hidden="true"
+                className="flex size-11 items-center justify-center text-line-strong"
+              >
+                ›
+              </span>
+            )}
+
+            {closeHref && (
+              <Link
+                href={closeHref}
+                className="ml-2 flex min-h-11 items-center px-2 text-small text-ink-muted
+                  transition-colors hover:text-ink"
+              >
+                收起
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
@@ -127,6 +136,7 @@ export function MonthCalendar({
                 );
                 const isToday = date === today;
                 const isActive = date === activeDate;
+                const isSelected = date === selectedDate;
                 const future = isFutureDay(date, today);
                 const dayNum = Number(date.slice(8, 10));
 
@@ -160,8 +170,9 @@ export function MonthCalendar({
                 return (
                   <td key={di} className="p-0 text-center align-middle">
                     {hasRecords && !future ? (
-                      <Link
-                        href={`/days/${date}`}
+                      <button
+                        type="button"
+                        onClick={() => onDateClick?.(date)}
                         aria-label={`${dayNum} 日，${s!.momentCount} 条记录${
                           s?.mood && MOOD_LABELS[s.mood] ? `，心情 ${MOOD_LABELS[s.mood].zh}` : ""
                         }`}
@@ -169,22 +180,22 @@ export function MonthCalendar({
                         className={`${base} mx-auto cursor-pointer ${
                           isActive
                             ? "bg-brand text-on-brand"
-                            : isToday
-                              ? "text-ink ring-1 ring-brand hover:bg-brand-soft"
-                              : "text-ink hover:bg-paper-raised"
+                            : isSelected
+                              ? "text-ink ring-2 ring-brand"
+                              : isToday
+                                ? "text-ink ring-1 ring-brand hover:bg-brand-soft"
+                                : "text-ink hover:bg-paper-raised"
                         }`}
                       >
                         {inner}
-                      </Link>
+                      </button>
                     ) : (
                       <span
                         className={`${base} mx-auto ${
                           isToday
                             ? "text-ink ring-1 ring-brand"
                             : future
-                              ? // 未来日期整体降透明度而不是换更浅的字色：
-                                // ink-hint 只有 2.4:1，日期数字是信息不能用它
-                                "text-ink-faint opacity-45"
+                              ? "text-ink-faint opacity-45"
                               : "text-ink-faint"
                         }`}
                       >

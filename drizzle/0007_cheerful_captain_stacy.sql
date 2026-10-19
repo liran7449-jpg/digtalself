@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "last_read_changelog_date" timestamp with time zone;

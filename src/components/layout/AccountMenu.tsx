@@ -14,7 +14,13 @@ import Link from "next/link";
  * 用原生 button + Link 而不是引入下拉菜单库：只有两个菜单项，
  * 一个库的体积和 API 面都不值得。
  */
-export function AccountMenu({ name }: { name: string | null }) {
+export function AccountMenu({
+  name,
+  hasUnreadChangelog = false
+}: {
+  name: string | null;
+  hasUnreadChangelog?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -106,10 +112,13 @@ export function AccountMenu({ name }: { name: string | null }) {
             role="menuitem"
             href="/changelog"
             onClick={() => setOpen(false)}
-            className="block px-4 py-2.5 text-small text-ink-soft transition-colors
+            className="relative block px-4 py-2.5 text-small text-ink-soft transition-colors
               duration-[var(--duration-quick)] hover:bg-brand-soft hover:text-ink"
           >
             更新日志
+            {hasUnreadChangelog && (
+              <span className="absolute right-4 top-1/2 size-2 -translate-y-1/2 rounded-full bg-red-500" />
+            )}
           </Link>
           <button
             role="menuitem"

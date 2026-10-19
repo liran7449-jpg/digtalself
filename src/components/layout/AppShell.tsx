@@ -6,6 +6,7 @@ import { AiButler } from "@/components/ai/AiButler";
 import { userRepo } from "@/repositories";
 import { getCurrentUserId } from "@/lib/session";
 import { getAiConfig } from "@/lib/ai/config";
+import { getLatestChangelogDate } from "@/lib/changelog";
 
 const NAV = [
   { href: "/today", label: "Today" },
@@ -41,6 +42,13 @@ export async function AppShell({
   const me = userId ? await userRepo.findById(userId) : null;
   const aiConfig = getAiConfig();
 
+  // 判断是否有未读更新日志
+  const latestChangelogDate = getLatestChangelogDate();
+  const hasUnreadChangelog = me && (
+    !me.lastReadChangelogDate ||
+    me.lastReadChangelogDate < latestChangelogDate
+  );
+
   return (
     <div className="min-h-dvh">
       <header className="sticky top-[env(safe-area-inset-top,0px)] z-50 border-b border-line bg-paper">
@@ -70,7 +78,12 @@ export async function AppShell({
           </nav>
 
           <div className="flex items-center gap-2">
-            {me && <AccountMenu name={me.name ?? me.username} />}
+            {me && (
+              <AccountMenu
+                name={me.name ?? me.username}
+                hasUnreadChangelog={!!hasUnreadChangelog}
+              />
+            )}
 
             {aiConfig ? (
               <AiButler provider={aiConfig.provider} />

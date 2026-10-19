@@ -1,11 +1,7 @@
-import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
-import { Label } from "@/components/ui/Primitives";
-import { MomentCard } from "@/components/moment/MomentCard";
-import { MonthCalendar } from "@/components/calendar/MonthCalendar";
+import { MomentsTimeline } from "./MomentsTimeline";
 import { getRepo } from "@/repositories";
 import {
-  formatDayHeading,
   isMonthKey,
   toDayKey,
   toMonthKey,
@@ -110,76 +106,15 @@ export default async function MomentsPage({
         </p>
       </header>
 
-      {/*
-        宽屏分两栏：时间流在左，日历在右。窄屏堆叠，日历在上 ——
-        它是「我在时间里的哪个位置」的锚点，放底下就没人看见了。
-        DOM 顺序主内容在前，靠 order 调换视觉位置。
-      */}
-      {/* 侧栏 20rem：日历 7 格 × 2.75rem 触控最小宽度 = 19.25rem，再窄会溢出 */}
-      <div className="mt-12 flex flex-col lg:mt-14 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-14">
-        <div className="order-2 lg:order-1">
-          <div className="space-y-14">
-            {groups.map((g) => (
-              <section key={g.date}>
-                {/* 日期是分组锚点，用线而不是卡片来分区 */}
-                <div className="flex items-baseline justify-between gap-4 border-b border-line pb-2.5">
-                  <Label tone={g.date === today ? "brand" : "muted"}>
-                    {formatDayHeading(g.date, today)}
-                  </Label>
-                  <Link
-                    href={`/days/${g.date}`}
-                    className="text-label text-ink-faint transition-colors hover:text-brand"
-                  >
-                    看这一天
-                  </Link>
-                </div>
-
-                <ul className="mt-6 space-y-6">
-                  {g.items.map((m) => (
-                    <li key={m.id}>
-                      <MomentCard
-                        moment={m}
-                        media={m.media}
-                        people={m.people}
-                        places={m.places}
-                        topics={m.topics}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-
-          {hasMore && (
-            <div className="mt-16 flex justify-start">
-              {/*
-                scroll={false}：Next 跳转默认滚回顶部，翻到底再点会被甩回最上面。
-                不滚动时已有的记录不重新挂载，更早的直接接在下面；
-                show=N 仍留在地址里，刷新或从详情返回不丢已加载的数量。
-              */}
-              <Link
-                href={`/moments?show=${limit + PAGE_SIZE}&cal=${calMonth}`}
-                scroll={false}
-                className="inline-flex min-h-11 items-center rounded-soft border border-line-strong px-5
-                  text-small text-ink transition-colors duration-[var(--duration-quick)]
-                  hover:border-ink-muted hover:bg-paper-raised"
-              >
-                看更早的
-              </Link>
-            </div>
-          )}
-        </div>
-
-        <aside className="order-1 mb-14 lg:order-2 lg:mb-0 lg:sticky lg:top-10 lg:self-start">
-          <MonthCalendar
-            month={calMonth}
-            summaries={summaries}
-            today={today}
-            monthHref={(m) => `/moments?cal=${m}${keepShow}`}
-          />
-        </aside>
-      </div>
+      <MomentsTimeline
+        groups={groups}
+        summaries={summaries}
+        today={today}
+        calMonth={calMonth}
+        keepShow={keepShow}
+        hasMore={hasMore}
+        limit={limit}
+      />
     </AppShell>
   );
 }

@@ -77,6 +77,11 @@ export const users = pgTable("users", {
    * NULL 表示从未标记，会显示当前版本的公告。
    */
   lastSeenVersion: text("last_seen_version"),
+  /**
+   * 用户最后查看更新日志的时间。
+   * 用于判断是否有新的更新日志（红点提示）。
+   */
+  lastReadChangelogDate: timestamp("last_read_changelog_date", { mode: "date", withTimezone: true }),
   createdAt,
   updatedAt,
 });
