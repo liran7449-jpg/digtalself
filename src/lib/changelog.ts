@@ -1,26 +1,20 @@
-import fs from 'fs';
-import path from 'path';
-
 /**
  * 获取更新日志的最新发布日期
  * 从 CHANGELOG.md 中解析第一个日期标题（## YYYY-MM-DD）
  */
 export function getLatestChangelogDate(): Date {
-  try {
-    const changelogPath = path.join(process.cwd(), 'src/content/CHANGELOG.md');
-    const content = fs.readFileSync(changelogPath, 'utf-8');
+  // 硬编码最新日期，每次更新 CHANGELOG.md 时手动更新这里
+  // 或者在构建时通过环境变量注入
+  return new Date('2026-10-17');
+}
 
-    // 匹配第一个日期标题（## 2026-10-17）
-    const match = content.match(/^##\s+(\d{4}-\d{2}-\d{2})/m);
-
-    if (match) {
-      return new Date(match[1]);
-    }
-
-    // 如果没有找到日期，返回一个很早的日期（不显示红点）
-    return new Date('2000-01-01');
-  } catch (error) {
-    console.error('Failed to read CHANGELOG.md:', error);
-    return new Date('2000-01-01');
-  }
+/**
+ * 获取更新日志内容
+ * 返回静态的 Markdown 内容
+ */
+export function getChangelogContent(): string {
+  // 这里可以通过 import 静态内容，或者返回硬编码的内容
+  // 为了避免 Vercel 构建问题，暂时返回空字符串
+  // changelog 页面会直接读取文件
+  return '';
 }
