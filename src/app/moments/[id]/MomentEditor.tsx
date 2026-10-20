@@ -4,14 +4,11 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Label, Rule } from "@/components/ui/Primitives";
-import { MoodPicker } from "@/components/state/MoodPicker";
 import { PersonLinksPanel } from "@/components/moment/PersonLinksPanel";
 import { PlaceLinksPanel } from "@/components/moment/PlaceLinksPanel";
 import { TopicLinksPanel } from "@/components/moment/TopicLinksPanel";
 import { GoalLinksPanel } from "@/components/moment/GoalLinksPanel";
 import { ImageUploader } from "@/components/moment/ImageUploader";
-import { MOMENT_TYPE_VALUES } from "@/domain/enums";
-import { MOMENT_TYPE_LABELS } from "@/domain/labels";
 import type { Moment, Person, Place, Topic, Goal, Media } from "@/domain/models";
 import { deleteMomentAndReturn, updateMoment } from "../actions";
 import {
@@ -62,7 +59,6 @@ export function MomentEditor({
   linkedMedia: Media[];
   isMemory: boolean;
 }) {
-  const [mood, setMood] = useState(moment.mood);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +68,9 @@ export function MomentEditor({
   function save(fd: FormData) {
     setError(null);
     setSaved(false);
-    if (mood) fd.set("mood", mood);
+    // 固定使用默认值
+    fd.set("type", "thought");
+    fd.set("mood", "");
     startTransition(async () => {
       const res = await updateMoment(moment.id, fd);
       if (res.ok) setSaved(true);
@@ -98,30 +96,6 @@ export function MomentEditor({
       />
 
       <div className="mt-11 space-y-9">
-        <div>
-          <Label htmlFor="type">Type</Label>
-          <select
-            id="type"
-            name="type"
-            defaultValue={moment.type}
-            className="mt-3 block min-h-11 rounded-soft border border-line bg-paper-sunken
-              px-4 text-body text-ink focus:border-brand focus:outline-none"
-          >
-            {MOMENT_TYPE_VALUES.map((t) => (
-              <option key={t} value={t}>
-                {MOMENT_TYPE_LABELS[t].label} · {MOMENT_TYPE_LABELS[t].zh}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <Label>Mood</Label>
-          <div className="mt-3">
-            <MoodPicker value={mood} onChange={setMood} />
-          </div>
-        </div>
-
         <PersonLinksPanel
           momentId={moment.id}
           linked={linkedPeople}
