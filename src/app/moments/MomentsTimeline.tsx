@@ -49,7 +49,15 @@ export function MomentsTimeline({
 
     if (element) {
       // 已加载，滚动到该日期
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      // 计算目标位置，减去导航栏高度（约 64px）+ 额外间距（16px）
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
     } else {
       // 未加载，滚动到底部让用户点"看更早的"
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
